@@ -1,0 +1,4 @@
+func main() -> Int {
+    let a:Int = -42;
+    print(a);
+};
