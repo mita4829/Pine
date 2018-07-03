@@ -182,12 +182,20 @@ tuple<string, int> Compiler::compile(Object* expr){
             string stmt = "imulq %"+regleft+", %"+regright;
             addCompileStmt(stmt);
         }else if(operation == DIV){
+            string movq = "movq %"+regleft+", %rcx";
+            string movq2 = "movq %"+regright+", %rax";
+            string movq3 = "movq %rcx, %rax";
             string cqld = "cltd";
-            string stmt = "idivq %"+regright;
-            string movq = "movq %rax, %"+regright;
-            addCompileStmt(cqld);
-            addCompileStmt(stmt);
+            string movq4 = "movq %"+regright+", %rcx";
+            string stmt = "idivq %rcx";
+            string movq5 = "movq %rax, %"+regright;
             addCompileStmt(movq);
+            addCompileStmt(movq2);
+            addCompileStmt(movq3);
+            addCompileStmt(cqld);
+            addCompileStmt(movq4);
+            addCompileStmt(stmt);
+            addCompileStmt(movq5);
         }
         registerManager.releaseRegister(regleft);
         return make_tuple(regright, REG);

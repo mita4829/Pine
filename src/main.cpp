@@ -47,27 +47,27 @@ int main(int argc, char** argv){
     
     
     
-    DEBUG("Source:");
-    cout << sourceCode;
+    //DEBUG("Source:");
+    //cout << sourceCode;
     Lexer::lex(sourceCode);
-    DEBUG("Lexems:");
-    print_v(Lexer::lexem);
+    //DEBUG("Lexems:");
+    //print_v(Lexer::lexem);
     Parser p = Parser(Lexer::lexem);
     p.parse();
     vector<Object*> ast = p.getAST();
-    DEBUG("AST:");
-    printAST(ast);
-    DEBUG("Flatten:");
+    //DEBUG("AST:");
+    //printAST(ast);
+    //DEBUG("Flatten:");
     Compiler c = Compiler(ast);
     for(Object* tree : ast){
         c.flatten(tree);
     }
     vector<Object*> flat_ast = c.popFlatStack();
-    for(Object* tree : flat_ast){
-        tree->print();
-        cout << endl;
-    }
-    DEBUG("Compile:");
+    //    for(Object* tree : flat_ast){
+    //        tree->print();
+    //        cout << endl;
+    //    }
+    //DEBUG("Compile:");
     for(Object* tree : flat_ast){
         c.compile(tree);
     }
