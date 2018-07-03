@@ -5,12 +5,12 @@
 #include "Register.hpp"
 
 /*
- Returns a multiple of 16 integer dependent on varCount.
- This number n = 16x, where n is the first value of x that satifies
- varCount * 4 <= 16 * x.
- MacOS requires 16-byte alignment for SIMD optimization on some function calls.
+ Returns a multiple of 32 integer dependent on varCount.
+ This number n = 32x, where n is the first value of x that satifies
+ varCount * 8 <= 32 * x.
+ MacOS requires 32-byte alignment for SIMD optimization on some function calls.
  */
-int align16ByteStack(int varCount);
+int align32ByteStack(int varCount);
 
 class Compiler {
 private:

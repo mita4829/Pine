@@ -139,7 +139,7 @@ Object* Parser::intersect_parse(){
 Object* Parser::nots_parse(){
     Object* result = atom_parse();
     string nots_tokens[] = {"-", "!", "~"};
-    while(in(curr, nots_tokens, sizeof(nots_tokens)/sizeof(nots_tokens[0]))){
+    while(in(curr, nots_tokens, sizeof(nots_tokens)/sizeof(nots_tokens[0])) && result == nullptr){
         if(curr == "-"){
             next();
             result = new Unary(atom_parse(), NEG);

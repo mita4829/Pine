@@ -118,7 +118,7 @@ tuple<string, int> Compiler::compile(Object* expr){
         compile(body);
         /* Create stack space dependent on variable count */
         int varCount = stackLoc.top().size();
-        int stackSize = align16ByteStack(varCount);
+        int stackSize = align32ByteStack(varCount);
         string collapse = "addq $"+to_string(stackSize)+", %rsp";
         string pop = "popq %rbp";
         string ret = "retq";
@@ -176,8 +176,10 @@ tuple<string, int> Compiler::compile(Object* expr){
             string stmt = "addq %"+regleft+", %"+regright;
             addCompileStmt(stmt);
         }else if(operation == SUB){
-            string stmt = "subq %"+regleft+", %"+regright;
+            string stmt = "subq %"+regright+", %"+regleft;
+            string orient = "movq %"+regleft+", %"+regright;
             addCompileStmt(stmt);
+            addCompileStmt(orient);
         }else if(operation == MUL){
             string stmt = "imulq %"+regleft+", %"+regright;
             addCompileStmt(stmt);
@@ -292,7 +294,7 @@ void Compiler::mapVarToStackLocation(string name){
     if(frame->count(name) > 0){
         RaisePineException("Redeclarion of variable named: "+name);
     }
-    int loc = (frame->size() + 1) << 2; /* Stack address are aligned by 0x4.
+    int loc = (frame->size() + 1) << 3; /* Stack address are aligned by 0x8.
                                          Give the Var the next location based
                                          on the given size of the scope's variable
                                          count.
@@ -335,8 +337,8 @@ void Compiler::PolymorphicPrint(Object* expr, tuple<string, int> result){
     addCompileStmt(call);
 }
 
-int align16ByteStack(int varCount){
-    int byteCount = varCount << 2; /* Multiple by 4: 4-byte for each var */
-    int stackSize = ((byteCount >> 4) + 1) << 4;
+int align32ByteStack(int varCount){
+    int byteCount = varCount << 3; /* Multiple by 4: 4-byte for each var */
+    int stackSize = ((byteCount >> 3) + 1) << 5;
     return stackSize;
 }
