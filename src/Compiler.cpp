@@ -19,7 +19,7 @@ Object* Compiler::flatten(Object* expr){
         Unary* u = Safe_Cast<Unary*>(expr);
         Object* flat = flatten(u->getVal());
         string tmp = requestTmpVarName();
-        Let* l = new Let(tmp, OBJECT, new Unary(flat, u->getOperation()));
+        Let* l = new Let(tmp, flat->getType(), new Unary(flat, u->getOperation()));
         addFlatStmtToStack(l);
         return new Var(tmp, OBJECT);
     }
@@ -46,7 +46,8 @@ Object* Compiler::flatten(Object* expr){
         while(!isValue(f_right->getType())){
             f_right = flatten(f_right);
         }
-        Let* l = new Let(tmp, OBJECT, new Binary(operation, f_left, f_right));
+        /*TODO: Research if it's safe to assume ltype as the binary result?*/
+        Let* l = new Let(tmp, f_left->getType(), new Binary(operation, f_left, f_right));
         addFlatStmtToStack(l);
         return new Var(tmp, OBJECT);
     }
@@ -103,7 +104,7 @@ tuple<string, int> Compiler::compile(Object* expr){
         tuple<string, int> operand = compile(unary->getVal());
         string reg = IntoRegister(get<0>(operand));
         if(operation == NEG){
-            string stmt = "negq " + reg;
+            string stmt = "negq %" + reg;
             addCompileStmt(stmt);
             return make_tuple(reg, REG);
         }
@@ -115,6 +116,28 @@ tuple<string, int> Compiler::compile(Object* expr){
         /* TODO: Expand args here */
         Seq* body = f->getBody();
         compile(body);
+        /* Create stack space dependent on variable count */
+        int varCount = stackLoc.top().size();
+        int stackSize = align16ByteStack(varCount);
+        string collapse = "addq $"+to_string(stackSize)+", %rsp";
+        string pop = "popq %rbp";
+        string ret = "retq";
+        string expand = "subq $"+to_string(stackSize)+", %rsp";
+        string newStack = "movq %rsp, %rbp";
+        string pushRbp = "pushq %rbp";
+        
+        addCompileStmt(collapse);
+        addCompileStmt(pop);
+        addCompileStmt(ret);
+        addFrontCompileStmt(expand);
+        addFrontCompileStmt(newStack);
+        addFrontCompileStmt(pushRbp);
+        
+        string fname = "_" + f->getName() + ":";
+        string globl = ".global _"+f->getName();
+        addFrontCompileStmt(fname);
+        addFrontCompileStmt(globl);
+        
         popStackFrame();
         return make_tuple("", -1);
     }
@@ -134,16 +157,47 @@ tuple<string, int> Compiler::compile(Object* expr){
         string name = let->getName();
         tuple<string, int> result = compile(rval);
         string reg = IntoRegister(get<0>(result));
+        mapVarToStackLocation(name);
         int stackLocation = getStackLocationForVar(name);
-        string stmt = "movq " + reg + ", -" + to_string(stackLocation) + "(%rbp)";
+        string stmt = "movq %" + reg + ", -" + to_string(stackLocation) + "(%rbp)";
         addCompileStmt(stmt);
         registerManager.releaseRegister(reg);
         return make_tuple("", -1);
     }
+    /*Binary*/
+    else if(EXPR_TYPE == BINARY){
+        Binary* b = Safe_Cast<Binary*>(expr);
+        int operation = b->getOperation();
+        tuple<string, int> left = compile(b->getLeft());
+        string regleft = IntoRegister(get<0>(left));
+        tuple<string, int> right = compile(b->getRight());
+        string regright = IntoRegister(get<0>(right));
+        if(operation == ADD){
+            string stmt = "addq %"+regleft+", %"+regright;
+            addCompileStmt(stmt);
+        }else if(operation == SUB){
+            string stmt = "subq %"+regleft+", %"+regright;
+            addCompileStmt(stmt);
+        }else if(operation == MUL){
+            string stmt = "imulq %"+regleft+", %"+regright;
+            addCompileStmt(stmt);
+        }else if(operation == DIV){
+            string cqld = "cltd";
+            string stmt = "idivq %"+regright;
+            string movq = "movq %rax, %"+regright;
+            addCompileStmt(cqld);
+            addCompileStmt(stmt);
+            addCompileStmt(movq);
+        }
+        registerManager.releaseRegister(regleft);
+        return make_tuple(regright, REG);
+    }
     /*Print*/
     else if(EXPR_TYPE == PRINT){
         Print* print = Safe_Cast<Print*>(expr);
-        
+        tuple<string, int> result = compile(print->getVal());
+        PolymorphicPrint(print->getVal(), result);
+        return make_tuple("", -1);
     }
     RaisePineWarning("Compiler reached end of token matching: "+to_string(EXPR_TYPE));
     return make_tuple("", -1);
@@ -199,6 +253,11 @@ void Compiler::addCompileStmt(string stmt){
     last->push_back(stmt);
 }
 
+void Compiler::addFrontCompileStmt(string stmt){
+    vector<string>* last = &(compileStmt.top());
+    last->insert(last->begin(), stmt);
+}
+
 void Compiler::pushNewStackFrame(){
     vector<string> frame;
     compileStmt.push(frame);
@@ -244,4 +303,32 @@ void Compiler::popStackLocationMap(){
 
 vector<string> Compiler::getAssembly(){
     return compileStmt.top();
+}
+
+void Compiler::PolymorphicPrint(Object* expr, tuple<string, int> result){
+    int EXPR_TYPE = expr->getType();
+    if(EXPR_TYPE == VAR){
+        Var* v = Safe_Cast<Var*>(expr);
+        int stackLocation = getStackLocationForVar(v->getName());
+        EXPR_TYPE = v->getType();
+        string val = "leaq -"+to_string(stackLocation)+"(%rbp), %rsi";
+        addCompileStmt(val);
+    }else if(get<1>(result) == STACKLOC){
+        string val = "leaq "+get<0>(result)+", %rsi";
+        addCompileStmt(val);
+    }else{
+        string val = "movq "+get<0>(result)+", %rsi";
+        addCompileStmt(val);
+    }
+    
+    string type = "movq $"+to_string(EXPR_TYPE)+", %rdi";
+    string call = "callq _PinePrint";
+    addCompileStmt(type);
+    addCompileStmt(call);
+}
+
+int align16ByteStack(int varCount){
+    int byteCount = varCount << 2; /* Multiple by 4: 4-byte for each var */
+    int stackSize = ((byteCount >> 4) + 1) << 4;
+    return stackSize;
 }

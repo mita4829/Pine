@@ -175,7 +175,7 @@ Object* Parser::atom_parse(){
     }
     /* Variable */
     else if(isVar(curr)){
-        result = new Var(curr, VAR);
+        result = new Var(curr, INTEGER);
         next();
     }
     /* Numeric value */

@@ -72,9 +72,20 @@ int main(int argc, char** argv){
         c.compile(tree);
     }
     vector<string> assmcode = c.getAssembly();
+    string output = "";
     for(string s : assmcode){
-        cout << s << endl;
+        char first = s[0];
+        string tab = "\t";
+        if(first != '.' && !(first >= 'A' && first <= 'Z')){
+            s = tab + s;
+        }
+        output += (s + "\n");
     }
+    ofstream asmFile;
+    asmFile.open("Pine.s");
+    asmFile << output;
+    asmFile.close();
+    system("gcc -std=c11 -o a.out Pine.s PineRuntime.s");
 }
 
 

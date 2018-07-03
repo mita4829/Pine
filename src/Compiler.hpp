@@ -4,6 +4,14 @@
 #include "Foundation.hpp"
 #include "Register.hpp"
 
+/*
+ Returns a multiple of 16 integer dependent on varCount.
+ This number n = 16x, where n is the first value of x that satifies
+ varCount * 4 <= 16 * x.
+ MacOS requires 16-byte alignment for SIMD optimization on some function calls.
+ */
+int align16ByteStack(int varCount);
+
 class Compiler {
 private:
     /* ast given from parser */
@@ -37,12 +45,15 @@ public:
     tuple<string, int> compile(Object* expr);
     int getStackLocationFor(string var);
     void addCompileStmt(string stmt);
+    void addFrontCompileStmt(string stmt);
     void pushNewStackFrame();
     void popStackFrame();
     void pushNewStackLocationMap();
     void mapVarToStackLocation(string);
     int getStackLocationForVar(string);
     void popStackLocationMap();
+    void PolymorphicPrint(Object* expr, tuple<string, int>);
+    
     /*Method to move operand regardless of compile type into an
      free register given from the registerManager.
      */
