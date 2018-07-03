@@ -63,11 +63,11 @@ int main(int argc, char** argv){
         c.flatten(tree);
     }
     vector<Object*> flat_ast = c.popFlatStack();
-    //    for(Object* tree : flat_ast){
-    //        tree->print();
-    //        cout << endl;
-    //    }
-    //DEBUG("Compile:");
+//    for(Object* tree : flat_ast){
+//        tree->print();
+//        cout << endl;
+//    }
+//    DEBUG("Compile:");
     for(Object* tree : flat_ast){
         c.compile(tree);
     }

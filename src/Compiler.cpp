@@ -19,9 +19,10 @@ Object* Compiler::flatten(Object* expr){
         Unary* u = Safe_Cast<Unary*>(expr);
         Object* flat = flatten(u->getVal());
         string tmp = requestTmpVarName();
-        Let* l = new Let(tmp, flat->getType(), new Unary(flat, u->getOperation()));
+        int newtype = getType(flat);
+        Let* l = new Let(tmp, newtype, new Unary(flat, u->getOperation()));
         addFlatStmtToStack(l);
-        return new Var(tmp, OBJECT);
+        return new Var(tmp, newtype);
     }
     /* Let */
     else if(EXPR_TYPE == LET){
@@ -34,8 +35,8 @@ Object* Compiler::flatten(Object* expr){
     /* Binary */
     else if(EXPR_TYPE == BINARY){
         Binary* bin_expr = Safe_Cast<Binary*>(expr);
-        Object* f_left     = flatten(bin_expr->getLeft());
-        Object* f_right    = flatten(bin_expr->getRight());
+        Object* f_left   = flatten(bin_expr->getLeft());
+        Object* f_right  = flatten(bin_expr->getRight());
         int left_type    = f_left->getType();
         int right_type   = f_right->getType();
         int operation    = bin_expr->getOperation();
@@ -46,10 +47,10 @@ Object* Compiler::flatten(Object* expr){
         while(!isValue(f_right->getType())){
             f_right = flatten(f_right);
         }
-        /*TODO: Research if it's safe to assume ltype as the binary result?*/
-        Let* l = new Let(tmp, f_left->getType(), new Binary(operation, f_left, f_right));
+        int newType = getType(f_left);
+        Let* l = new Let(tmp, newType, new Binary(operation, f_left, f_right));
         addFlatStmtToStack(l);
-        return new Var(tmp, OBJECT);
+        return new Var(tmp, newType);
     }
     /* Function */
     else if(EXPR_TYPE == FUNCTION){
@@ -87,6 +88,22 @@ tuple<string, int> Compiler::compile(Object* expr){
         int i = integer->getVal();
         string operand = "$"+to_string(i);
         return make_tuple(operand, INTEGER);
+    }
+    /*Float*/
+    else if(EXPR_TYPE == FLOAT){
+        Float* f = Safe_Cast<Float*>(expr);
+        float val = f->getVal();
+        union{
+            float f_bits;
+            int i_bits;
+        };
+        f_bits = val;
+        int id = requestFloatID();
+        string stmt = "FLOAT_"+to_string(id)+":";
+        string value= ".long " + to_string(i_bits) + " #" +to_string(f_bits);
+        header.push_back(stmt);
+        header.push_back(value);
+        return make_tuple("FLOAT_"+to_string(id)+"(%rip)", STACKLOC);
     }
     /*Var*/
     else if(EXPR_TYPE == VAR){
@@ -137,7 +154,6 @@ tuple<string, int> Compiler::compile(Object* expr){
         string globl = ".global _"+f->getName();
         addFrontCompileStmt(fname);
         addFrontCompileStmt(globl);
-        
         popStackFrame();
         return make_tuple("", -1);
     }
@@ -277,10 +293,10 @@ void Compiler::pushNewStackFrame(){
 void Compiler::popStackFrame(){
     vector<string> second_last = (compileStmt.top());
     compileStmt.pop();
-    vector<string>* last = &(compileStmt.top());
-    second_last.insert(second_last.end(), last->begin(), last->end());
+    vector<string> last = (compileStmt.top());
+    last.insert(last.begin(), second_last.begin(), second_last.end());
     compileStmt.pop();
-    compileStmt.push(second_last);
+    compileStmt.push(last);
     popStackLocationMap();
 }
 
@@ -312,7 +328,8 @@ void Compiler::popStackLocationMap(){
 }
 
 vector<string> Compiler::getAssembly(){
-    return compileStmt.top();
+    header.insert(header.end(), compileStmt.top().begin(), compileStmt.top().end());
+    return header;
 }
 
 void Compiler::PolymorphicPrint(Object* expr, tuple<string, int> result){
@@ -337,8 +354,21 @@ void Compiler::PolymorphicPrint(Object* expr, tuple<string, int> result){
     addCompileStmt(call);
 }
 
+int Compiler::getType(Object* expr){
+    int EXPR_TYPE = expr->getType();
+    if(EXPR_TYPE == VAR){
+        Var* v = Safe_Cast<Var*>(expr);
+        return v->getType();
+    }
+    return EXPR_TYPE;
+}
 int align32ByteStack(int varCount){
     int byteCount = varCount << 3; /* Multiple by 4: 4-byte for each var */
     int stackSize = ((byteCount >> 3) + 1) << 5;
     return stackSize;
+}
+int requestFloatID(){
+    static int id = -1;
+    id += 1;
+    return id;
 }

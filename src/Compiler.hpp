@@ -11,6 +11,7 @@
  MacOS requires 32-byte alignment for SIMD optimization on some function calls.
  */
 int align32ByteStack(int varCount);
+int requestFloatID();
 
 class Compiler {
 private:
@@ -20,8 +21,8 @@ private:
     stack<vector<Object*>> flattenStmt;
     /* Compile stack location */
     stack<map<string, int>> stackLoc;
-    
     stack<vector<string>> compileStmt;
+    vector<string> header;
     
     Register registerManager;
     
@@ -54,6 +55,7 @@ public:
     void popStackLocationMap();
     void PolymorphicPrint(Object* expr, tuple<string, int>);
     
+    int getType(Object* expr);
     /*Method to move operand regardless of compile type into an
      free register given from the registerManager.
      */

@@ -16,6 +16,7 @@ private:
     vector<vector<string>> lexems;
     vector<string> line;
     vector<set<string>> varScope;
+    stack<map<string, int>> typeEnv;
     
     string curr;
     int lineIndex;
@@ -40,9 +41,11 @@ public:
     Object* atom_parse();
     
     bool isVar(string);
-    void pushNewScope();
-    set<string> popScope();
-    void insertIntoScope(string var);
+   
+    void pushNewTypeEnv();
+    map<string, int> popTypeEnv();
+    void bindType(string name, int type);
+    int getTypeForVar(string name);
     
     vector<Object*> getAST();
 };

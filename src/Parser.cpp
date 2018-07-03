@@ -1,15 +1,16 @@
 #include "Parser.hpp"
 
-Parser::Parser(){set<string> s; varScope.push_back(s);}
+Parser::Parser(){
+    map<string, int> m; typeEnv.push(m);
+}
 Parser::~Parser(){}
-Parser::Parser(vector<vector<string>> _lexems){
+Parser::Parser(vector<vector<string>> _lexems) : Parser() {
     lexems = _lexems;
     lineIndex = 0;
     if(lexems.size() > 0){
         line = lexems[0];
         curr = line[0];
     }
-    set<string> s; varScope.push_back(s);
 }
 void Parser::next(){
     if(lineIndex+1 < line.size()){
@@ -67,10 +68,10 @@ Object* Parser::print_parse(){
 
 Object* Parser::let_parse(){
     string lval = curr;
-    insertIntoScope(lval);
     next(); // :
     next();
     int type = translateType(curr);
+    bindType(lval, type);
     next(); // =
     next();
     Object* rval = generic_parse();
@@ -78,9 +79,8 @@ Object* Parser::let_parse(){
 }
 
 Object* Parser::function_parse(){
-    pushNewScope();
+    pushNewTypeEnv();
     string fname = curr;
-    insertIntoScope(fname);
     next(); /* ( */
     next();
     /* TODO: Capture argv list */
@@ -89,6 +89,7 @@ Object* Parser::function_parse(){
     next(); /* ) */
     next(); /* -> */
     int return_type = translateType(curr);
+    bindType(fname, return_type);
     next(); /* { */
     next();
     vector<Object*> body;
@@ -98,7 +99,7 @@ Object* Parser::function_parse(){
         next();
     }
     next(); /* } */
-    popScope();
+    popTypeEnv();
     return new Function(fname, argv, new Seq(body), return_type);
 }
 
@@ -175,7 +176,7 @@ Object* Parser::atom_parse(){
     }
     /* Variable */
     else if(isVar(curr)){
-        result = new Var(curr, INTEGER);
+        result = new Var(curr, getTypeForVar(curr));
         next();
     }
     /* Numeric value */
@@ -217,25 +218,33 @@ int Parser::translateType(string type){
 }
 
 bool Parser::isVar(string name){
-    set<string>* s = &(varScope.back());
+    map<string, int>* s = &(typeEnv.top());
     if(s->find(name) != s->end()){
         return true;
     }
     return false;
 }
 
-void Parser::pushNewScope(){
-    set<string> s;
-    varScope.push_back(s);
+void Parser::pushNewTypeEnv(){
+    map<string, int> m;
+    typeEnv.push(m);
 }
 
-set<string> Parser::popScope(){
-    set<string> last = (varScope.back());
-    varScope.pop_back();
+map<string, int> Parser::popTypeEnv(){
+    map<string, int> last = (typeEnv.top());
+    typeEnv.pop();
     return last;
 }
 
-void Parser::insertIntoScope(string var){
-    set<string>* s = &(varScope.back());
-    s->insert(var);
+void Parser::bindType(string name, int type){
+    map<string,int>* s = &(typeEnv.top());
+    (*s)[name] = type;
+}
+
+int Parser::getTypeForVar(string name){
+    map<string, int>* last = &(typeEnv.top());
+    if(last->find(name) == last->end()){
+        RaisePineException("Undefined variable type: "+name);
+    }
+    return (*last)[name];
 }

@@ -1,4 +1,11 @@
 func main() -> Int {
-    let a:Int = -42;
+    let a:Int = 3+4;
     print(a);
+    let s:Int = 12-9;
+    print(s);
+    let m:Int = 8*8;
+    print(m);
+    let d:Int = 5/3;
+    print(d);
 };
+
