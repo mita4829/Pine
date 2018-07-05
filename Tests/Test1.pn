@@ -1,0 +1,10 @@
+func main() -> Int {
+    let add:Int = 1+2+3;
+    print(add);
+    let sub:Int = 1-2-3;
+    print(sub);
+    let mul:Int = 1*2*3;
+    print(mul);
+    let div:Int = 1/2/3;
+    print(div);
+};
