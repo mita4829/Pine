@@ -1,10 +1,26 @@
-language: cpp
-compiler:
-    - gcc
-    - clang
-install:
-    - sudo apt-get install python3.6
-before_script:
-    - cd src/ && make
-script:
-    python3 RunTests.py
+matrix:
+    include:
+        - language: cpp
+          os: linux
+          compiler:
+              - gcc
+              - clang
+          install:
+              - sudo apt-get update
+              - sudo apt-get install python3
+          before_script:
+              - cd src/ && make
+          script:
+              python3 RunTests.py
+        - language: cpp
+          os: osx
+          compiler:
+              - gcc
+              - clang
+          install:
+              - brew install python3
+          before_script:
+              - cd src/ && make
+          script:
+              python3 RunTests.py
+         
