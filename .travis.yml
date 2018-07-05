@@ -1,6 +1,10 @@
-os: osx
 language: cpp
+compiler:
+    - gcc
+    - clang
+install:
+    - sudo apt-get install python3.6
 before_script:
     - cd src/ && make
 script:
-    - python3 RunTests.py
+    python3 RunTests.py
