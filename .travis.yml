@@ -1,27 +1,27 @@
 matrix:
     include:
         - language: cpp
-          os: linux
+        - os: linux
           addons:
                apt:
                    sources:
                     - ubuntu-toolchain-r-test
                    packages:
-                    - g++-6
+                    - g++-7
           env:
-            - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
+            - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
           compiler:
               - gcc
           install:
               - sudo apt-get update
               - sudo apt-get install python3
           before_script:
-              - cd src/ && make
+              - cd src/ && make && cd ..
           script:
               python3 RunTests.py
               
         - language: cpp
-          os: osx
+        - os: osx
           env:
                - MATRIX_EVAL="brew install gcc6 && CC=gcc-6 && CXX=g++-6"
           compiler:
@@ -30,7 +30,9 @@ matrix:
           install:
               - brew upgrade python
           before_script:
-              - cd src/ && make
+              - cd src/ && make cd ..
           script:
               python3 RunTests.py
          
+before_install:
+    - eval "${MATRIX_EVAL}"
