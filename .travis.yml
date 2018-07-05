@@ -1,6 +1,7 @@
 matrix:
     include:
-        - os: linux
+        - language: cpp
+          os: linux
             env: COMPILER_NAME=gcc CXX=g++-6 CC=gcc-6
             addons:
                  apt:
@@ -14,8 +15,9 @@ matrix:
               - cd src/ && make && cd ..
           script:
               python3 RunTests.py
-              
-        - os: osx
+
+        - language: cpp      
+          os: osx
           env: COMPILER_NAME=clang CXX=clang++-3.8 CC=clang-3.8
           compiler:
               - clang
