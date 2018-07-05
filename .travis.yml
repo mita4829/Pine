@@ -4,7 +4,7 @@ matrix:
       osx_image: xcode8
       before_install:
         - brew update
-        - brew update python
+        - brew upgrade python
       install: brew install gcc && CC=gcc-7 && CXX=g++-7
       before_script: cd ./src && make && cd ..
       script: python3 RunTests.py
