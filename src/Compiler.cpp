@@ -99,6 +99,17 @@ Object* Compiler::flatten(Object* expr){
         addFlatStmtToStack(flatten_let);
         return new Var(tmp, BOOLEAN);
     }
+    /*Logical*/
+    else if(EXPR_TYPE == LOGICAL){
+        Logical* l = Safe_Cast<Logical*>(expr);
+        int operation = l->getOperation();
+        Object* left = flatten(l->getLeft());
+        Object* right = flatten(l->getRight());
+        string tmp = requestTmpVarName();
+        Let* flatten_let = new Let(tmp, BOOLEAN, new Logical(operation, left, right));
+        addFlatStmtToStack(flatten_let);
+        return new Var(tmp, BOOLEAN);
+    }
     RaisePineWarning("Flatten reached end of token matching.");
     return nullptr;
 }
@@ -329,7 +340,7 @@ tuple<string, int> Compiler::compile(Object* expr){
         If* i = Safe_Cast<If*>(expr);
         tuple<string, int> con = compile(i->getCondition());
         int conType = getType(i->getCondition());
-        if(conType != BOOLEAN && conType != COMPARE){
+        if(conType != BOOLEAN && conType != COMPARE && conType != LOGICAL){
             RaisePineException("If statement conditions must be evaluable to a Boolean type.");
         }
         string reg = IntoRegister(get<0>(con));
@@ -358,25 +369,37 @@ tuple<string, int> Compiler::compile(Object* expr){
         if(ltype != rtype){
             RaisePineException("Comparison operation require like-type operands.");
         }
+        string instruction;
+        /* Jump if comparison is false */
         if(operation == EQU){
-            string regleft = IntoRegister(get<0>(left));
-            string regright = IntoRegister(get<0>(right));
-            string cmp = "cmpq %"+regleft+", %"+regright;
-            addCompileStmt(cmp);
-            string label = "COMPARE_T"+to_string(requestJumpID());
-            string Short = "COMPARE_F"+to_string(requestShortID());
-            /* Move $1 into the right register */
-            string jmp = "jne "+label;
-            addCompileStmt(jmp);
-            addCompileStmt("movq $1, %"+regright);
-            addCompileStmt("jmp "+Short);
-            addCompileStmt(label+":");
-            addCompileStmt("movq $0, %"+regright);
-            addCompileStmt(Short+":");
-            registerManager.releaseRegister(regleft);
-            return make_tuple(regright, BOOLEAN);
+            instruction = "jne";
+        }else if(operation == NEQ){
+            instruction = "je";
+        }else if(operation == LT){
+            instruction = "jl";
+        }else if(operation == LTE){
+            instruction = "jle";
+        }else if(operation == GTE){
+            instruction = "jge";
+        }else if(operation == GT){
+            instruction = "jg";
         }
-        return make_tuple("", -1);
+        string regleft = IntoRegister(get<0>(left));
+        string regright = IntoRegister(get<0>(right));
+        string cmp = "cmpq %"+regleft+", %"+regright;
+        addCompileStmt(cmp);
+        string label = "COMPARE_T"+to_string(requestJumpID());
+        string Short = "COMPARE_F"+to_string(requestShortID());
+        /* Move $1 into the right register */
+        string jmp = instruction+" "+label;
+        addCompileStmt(jmp);
+        addCompileStmt("movq $1, %"+regright);
+        addCompileStmt("jmp "+Short);
+        addCompileStmt(label+":");
+        addCompileStmt("movq $0, %"+regright);
+        addCompileStmt(Short+":");
+        registerManager.releaseRegister(regleft);
+        return make_tuple(regright, BOOLEAN);
     }
     /*Print*/
     else if(EXPR_TYPE == PRINT){
@@ -384,6 +407,52 @@ tuple<string, int> Compiler::compile(Object* expr){
         tuple<string, int> result = compile(print->getVal());
         PolymorphicPrint(print->getVal(), result);
         return make_tuple("", -1);
+    }
+    /*Logical*/
+    else if(EXPR_TYPE == LOGICAL){
+        Logical* l = Safe_Cast<Logical*>(expr);
+        int operation = l->getOperation();
+        string regleft = IntoRegister(get<0>(compile(l->getLeft())));
+        string regright = IntoRegister(get<0>(compile(l->getRight())));
+        string End = "LOGICAL_"+to_string(requestShortID());
+        if(operation == AND){
+            string False = "LOGICAL_"+to_string(requestShortID());
+            string cmpq = "cmpq $1, %"+regleft;
+            string jne = "jne "+False;
+            string cmpq2 = "cmpq $1, %"+regright;
+            string movq = "movq $1, %"+regright;
+            string jmp = "jmp "+End;
+            string fmov = "movq $0, %"+regright;
+            addCompileStmt(cmpq);
+            addCompileStmt(jne);
+            addCompileStmt(cmpq2);
+            addCompileStmt(jne);
+            addCompileStmt(movq);
+            addCompileStmt(jmp);
+            addCompileStmt(False+":");
+            addCompileStmt(fmov);
+            addCompileStmt(End+":");
+        }
+        else if(operation == OR){
+            string True = "LOGICAL_"+to_string(requestShortID());
+            string cmpq = "cmpq $1, %"+regleft;
+            string je = "je "+True;
+            string cmpq2 = "cmpq $1, %"+regright;
+            string movq = "movq $0, %"+regright;
+            string jmp = "jmp "+End;
+            string tmov = "movq $1, %"+regright;
+            addCompileStmt(cmpq);
+            addCompileStmt(je);
+            addCompileStmt(cmpq2);
+            addCompileStmt(je);
+            addCompileStmt(movq);
+            addCompileStmt(jmp);
+            addCompileStmt(True+":");
+            addCompileStmt(tmov);
+            addCompileStmt(End+":");
+        }
+        registerManager.releaseRegister(regleft);
+        return make_tuple(regright, REG);
     }
     RaisePineWarning("Compiler reached end of token matching: "+to_string(EXPR_TYPE));
     return make_tuple("", -1);

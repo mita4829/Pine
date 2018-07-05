@@ -28,6 +28,7 @@ enum Expr {
     UNARY,
     SEQ,
     IF,
+    LOGICAL,
     
     REG,
     STACKLOC,
@@ -48,6 +49,8 @@ enum OPERATION {
     NEG,
     NOT,
     IVT,
+    AND,
+    OR,
 };
 
 class Object {
@@ -245,6 +248,19 @@ public:
     virtual void print();
 };
 
+class Logical : public Object {
+private:
+  int operation;
+  Object* left = nullptr;
+  Object* right = nullptr;
+public:
+  Logical();
+  Logical(int, Object*, Object*);
+  int getOperation();
+  Object* getLeft();
+  Object* getRight();
+  virtual void print();
+};
 
 
 template <typename T>

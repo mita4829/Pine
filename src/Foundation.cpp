@@ -350,6 +350,33 @@ void If::print(){
     cout << ")";
 }
 
+Logical::Logical(){
+    Type = LOGICAL;
+}
+Logical::Logical(int o, Object* l, Object* r) : Logical() {
+    operation = o;
+    left = l;
+    right = r;
+}
+int Logical::getOperation(){
+    return operation;
+}
+Object* Logical::getLeft(){
+    return left;
+}
+Object* Logical::getRight(){
+    return right;
+}
+void Logical::print(){
+    cout << "Logical(";
+    cout << operation;
+    cout << ",";
+    left->print();
+    cout << ",";
+    right->print();
+    cout << ")";
+}
+
 void DEBUG(string message){
     cout << "\e[0;32m" << "DEBUG: " << "\e[0m" << message << endl;
 }

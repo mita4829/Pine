@@ -60,7 +60,7 @@ Object* Parser::generic_parse(){
     }
     /*Atomic token*/
     else{
-        Object* rtn = logical_parse();
+        Object* rtn = logical_or();
         return rtn;
     }
     /*Unexpected lexem*/
@@ -137,6 +137,24 @@ Object* Parser::function_parse(){
     next(); /* } */
     popTypeEnv();
     return new Function(fname, argv, new Seq(body), return_type);
+}
+
+Object* Parser::logical_or(){
+    Object* result = logical_and();
+    while(curr == "||"){
+        next();
+        result = new Logical(OR, result, logical_and());
+    }
+    return result;
+}
+
+Object* Parser::logical_and(){
+    Object* result = logical_parse();
+    while(curr == "&&"){
+        next();
+        result = new Logical(AND, result, logical_parse());
+    }
+    return result;
 }
 
 /* Numerical tokens for expression [Stops on semi-colon] */
