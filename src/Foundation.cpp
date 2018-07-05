@@ -323,6 +323,33 @@ void Seq::print(){
     cout << ")";
 }
 
+If::If(){Type = IF;}
+If::If(Object* _condition, Seq* _body, Seq* _Else) : If() {
+    condition = _condition;
+    body = _body;
+    Else = _Else;
+}
+Object* If::getCondition(){
+    return condition;
+}
+Seq* If::getBody(){
+    return body;
+}
+Seq* If::getElse(){
+    return Else;
+}
+void If::print(){
+    cout << "If(";
+    condition->print();
+    cout << ", ";
+    body->print();
+    cout << ", ";
+    if(Else != nullptr){
+        Else->print();
+    }
+    cout << ")";
+}
+
 void DEBUG(string message){
     cout << "\e[0;32m" << "DEBUG: " << "\e[0m" << message << endl;
 }

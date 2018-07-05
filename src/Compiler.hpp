@@ -12,6 +12,8 @@
  */
 int align32ByteStack(int varCount);
 int requestFloatID();
+int requestJumpID();
+int requestShortID();
 
 class Compiler {
 private:

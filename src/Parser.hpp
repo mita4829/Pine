@@ -34,7 +34,9 @@ public:
     Object* generic_parse();
     Object* print_parse();
     Object* let_parse();
+    Object* if_parse();
     Object* function_parse();
+    Object* logical_parse();
     Object* union_parse();
     Object* intersect_parse();
     Object* nots_parse();

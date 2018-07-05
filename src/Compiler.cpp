@@ -11,7 +11,7 @@ Compiler::Compiler(vector<Object*> _ast) : Compiler() {
 Object* Compiler::flatten(Object* expr){
     int EXPR_TYPE = expr->getType();
     /* Primative */
-    if(EXPR_TYPE == INTEGER || EXPR_TYPE == FLOAT || EXPR_TYPE == DOUBLE || EXPR_TYPE == STRING || EXPR_TYPE == VAR){
+    if(EXPR_TYPE == VAR || EXPR_TYPE == INTEGER || EXPR_TYPE == FLOAT || EXPR_TYPE == DOUBLE || EXPR_TYPE == STRING || EXPR_TYPE == BOOLEAN){
         return expr;
     }
     /* Unary */
@@ -55,17 +55,10 @@ Object* Compiler::flatten(Object* expr){
     /* Function */
     else if(EXPR_TYPE == FUNCTION){
         Function* f = Safe_Cast<Function*>(expr);
-        /* Expand function stack */
-        pushNewFlatStack();
-        
-        Seq* body = f->getBody();
-        vector<Object*> body_stmt = body->getStatements();
-        for(Object* s : body_stmt){
-            flatten(s);
-        }
+        Seq* flatBody = (Seq*)flatten(f->getBody());
         /* Func body only contains non-const code to remove dead instructions */
-        vector<Object*> flatBody = popFlatStack();
-        addFlatStmtToStack(new Function(f->getName(), f->getArgv(), new Seq(flatBody), f->getReturnType()));
+
+        addFlatStmtToStack(new Function(f->getName(), f->getArgv(), flatBody, f->getReturnType()));
         return nullptr;
     }
     /* Print */
@@ -74,6 +67,37 @@ Object* Compiler::flatten(Object* expr){
         Object* f_print = flatten(p->getVal());
         addFlatStmtToStack(new Print(f_print));
         return nullptr;
+    }/* Seq */
+    else if(EXPR_TYPE == SEQ){
+        Seq* s = Safe_Cast<Seq*>(expr);
+         /* Expand function stack */
+        pushNewFlatStack();
+        vector<Object*> body_stmt = s->getStatements();
+        for(Object* stmt : body_stmt){
+            flatten(stmt);
+        }
+        vector<Object*> flatBody = popFlatStack();
+        return new Seq(flatBody);
+    }
+    /* If */
+    else if(EXPR_TYPE == IF){
+        If* i = Safe_Cast<If*>(expr);
+        Object* con = flatten(i->getCondition());
+        Seq* seq = (Seq*)flatten(i->getBody());
+        Seq* seqe = (Seq*)flatten(i->getElse());
+        addFlatStmtToStack(new If(con, seq, seqe));
+        return nullptr;
+    }
+    /*Compare*/
+    else if(EXPR_TYPE == COMPARE){
+        Compare* c = Safe_Cast<Compare*>(expr);
+        int operation = c->getOperation();
+        Object* left = flatten(c->getLeft());
+        Object* right = flatten(c->getRight());
+        string tmp = requestTmpVarName();
+        Let* flatten_let = new Let(tmp, BOOLEAN, new Compare(operation, left, right));
+        addFlatStmtToStack(flatten_let);
+        return new Var(tmp, BOOLEAN);
     }
     RaisePineWarning("Flatten reached end of token matching.");
     return nullptr;
@@ -101,9 +125,37 @@ tuple<string, int> Compiler::compile(Object* expr){
         int id = requestFloatID();
         string stmt = "FLOAT_"+to_string(id)+":";
         string value= ".long " + to_string(i_bits) + " #" +to_string(f_bits);
+        string movq = "movq FLOAT_"+to_string(id)+"(%rip), %xmm0";
         header.push_back(stmt);
         header.push_back(value);
-        return make_tuple("FLOAT_"+to_string(id)+"(%rip)", STACKLOC);
+        addCompileStmt(movq);
+        return make_tuple("%xmm0", REG);
+    }
+    /*Double*/
+    else if(EXPR_TYPE == DOUBLE){
+        Double* d = Safe_Cast<Double*>(expr);
+        double val = d->getVal();
+        union{
+            double d_bits;
+            int64_t i_bits;
+        };
+        d_bits = val;
+        int id = requestFloatID();
+        string stmt = "DOUBLE_"+to_string(id)+":";
+        string value= ".quad " + to_string(i_bits) + " #" +to_string(d_bits);
+        string movq = "movsd DOUBLE_"+to_string(id)+"(%rip), %xmm0";
+        header.push_back(stmt);
+        header.push_back(value);
+        addCompileStmt(movq);
+        return make_tuple("%xmm0", REG);
+    }
+    /*Boolean*/
+    else if(EXPR_TYPE == BOOLEAN){
+        Boolean* boolean = Safe_Cast<Boolean*>(expr);
+        bool val = boolean->getVal();
+        int cast = (int)val;
+        string operand = "$"+to_string(cast);
+        return make_tuple(operand, BOOLEAN);
     }
     /*Var*/
     else if(EXPR_TYPE == VAR){
@@ -188,35 +240,143 @@ tuple<string, int> Compiler::compile(Object* expr){
         string regleft = IntoRegister(get<0>(left));
         tuple<string, int> right = compile(b->getRight());
         string regright = IntoRegister(get<0>(right));
+        int ltype = getType(b->getLeft());
+        int rtype = getType(b->getRight());
         if(operation == ADD){
-            string stmt = "addq %"+regleft+", %"+regright;
-            addCompileStmt(stmt);
+            if(ltype == INTEGER && rtype == INTEGER){
+                string stmt = "addq %"+regleft+", %"+regright;
+                addCompileStmt(stmt);
+            }else if((ltype == FLOAT && rtype == FLOAT) || (ltype == DOUBLE && rtype == DOUBLE)){
+                string x0 = "movq %"+regleft+", %xmm0";
+                string x1 = "movq %"+regright+", %xmm1";
+                string add = "addss %xmm0, %xmm1";
+                string mov = "movq %xmm1, %"+regright;
+                addCompileStmt(x0);
+                addCompileStmt(x1);
+                addCompileStmt(add);
+                addCompileStmt(mov);
+            }else if(ltype != rtype){
+                RaisePineException("Binary operation + on non-matching type operands.");
+            }
         }else if(operation == SUB){
-            string stmt = "subq %"+regright+", %"+regleft;
-            string orient = "movq %"+regleft+", %"+regright;
-            addCompileStmt(stmt);
-            addCompileStmt(orient);
+            if(ltype == INTEGER && rtype == INTEGER){
+                string stmt = "subq %"+regright+", %"+regleft;
+                string orient = "movq %"+regleft+", %"+regright;
+                addCompileStmt(stmt);
+                addCompileStmt(orient);
+            }else if((ltype == FLOAT && rtype == FLOAT) || (ltype == DOUBLE && rtype == DOUBLE)){
+                string x0 = "movq %"+regleft+", %xmm0";
+                string x1 = "movq %"+regright+", %xmm1";
+                string sub = "subss %xmm1, %xmm0";
+                string mov = "movq %xmm0, %"+regright;
+                addCompileStmt(x0);
+                addCompileStmt(x1);
+                addCompileStmt(sub);
+                addCompileStmt(mov);
+            }else if(ltype != rtype){
+                RaisePineException("Binary operation - on non-matching type operands.");
+            }
         }else if(operation == MUL){
-            string stmt = "imulq %"+regleft+", %"+regright;
-            addCompileStmt(stmt);
+            if(ltype == INTEGER && rtype == INTEGER){
+                string stmt = "imulq %"+regleft+", %"+regright;
+                addCompileStmt(stmt);
+            }else if((ltype == FLOAT && rtype == FLOAT) || (ltype == DOUBLE && rtype == DOUBLE)){
+                string x0 = "movq %"+regleft+", %xmm0";
+                string x1 = "movq %"+regright+", %xmm1";
+                string mul = "mulss %xmm0, %xmm1";
+                string mov = "movq %xmm1, %"+regright;
+                addCompileStmt(x0);
+                addCompileStmt(x1);
+                addCompileStmt(mul);
+                addCompileStmt(mov);
+            }else if(ltype != rtype){
+                RaisePineException("Binary operation * on non-matching type operands.");
+            }
         }else if(operation == DIV){
-            string movq = "movq %"+regleft+", %rcx";
-            string movq2 = "movq %"+regright+", %rax";
-            string movq3 = "movq %rcx, %rax";
-            string cqld = "cltd";
-            string movq4 = "movq %"+regright+", %rcx";
-            string stmt = "idivq %rcx";
-            string movq5 = "movq %rax, %"+regright;
-            addCompileStmt(movq);
-            addCompileStmt(movq2);
-            addCompileStmt(movq3);
-            addCompileStmt(cqld);
-            addCompileStmt(movq4);
-            addCompileStmt(stmt);
-            addCompileStmt(movq5);
+            if(ltype == INTEGER && rtype == INTEGER){
+                string movq = "movq %"+regleft+", %rcx";
+                string movq2 = "movq %"+regright+", %rax";
+                string movq3 = "movq %rcx, %rax";
+                string cqld = "cltd";
+                string movq4 = "movq %"+regright+", %rcx";
+                string stmt = "idivq %rcx";
+                string movq5 = "movq %rax, %"+regright;
+                addCompileStmt(movq);
+                addCompileStmt(movq2);
+                addCompileStmt(movq3);
+                addCompileStmt(cqld);
+                addCompileStmt(movq4);
+                addCompileStmt(stmt);
+                addCompileStmt(movq5);
+            }else if((ltype == FLOAT && rtype == FLOAT) || (ltype == DOUBLE && rtype == DOUBLE)){
+                string movq = "movq %"+regleft+", %xmm0";
+                string movq2 = "movq %"+regright+", %xmm1";
+                string stmt = "divss %xmm1, %xmm0";
+                string movq3 = "movq %xmm0, %"+regright;
+                addCompileStmt(movq);
+                addCompileStmt(movq2);
+                addCompileStmt(stmt);
+                addCompileStmt(movq3);
+            }else if(ltype != rtype){
+                RaisePineException("Binary operation / on non-matching type operands.");
+            }
         }
         registerManager.releaseRegister(regleft);
         return make_tuple(regright, REG);
+    }
+    /*If*/
+    else if(EXPR_TYPE == IF){
+        If* i = Safe_Cast<If*>(expr);
+        tuple<string, int> con = compile(i->getCondition());
+        int conType = getType(i->getCondition());
+        if(conType != BOOLEAN && conType != COMPARE){
+            RaisePineException("If statement conditions must be evaluable to a Boolean type.");
+        }
+        string reg = IntoRegister(get<0>(con));
+        string shortL= "SHORT_"+to_string(requestShortID());
+        string elseL = "ELSE_"+to_string(requestJumpID());
+        string cmpq = "cmpq $1, %"+reg;
+        string jmp  = "jne "+elseL;
+        
+        addCompileStmt(cmpq);
+        addCompileStmt(jmp);
+        compile(i->getBody());
+        addCompileStmt("jmp "+shortL);
+        addCompileStmt(elseL+":");
+        compile(i->getElse());
+        addCompileStmt(shortL+":");
+        return make_tuple("", -1);
+    }
+    /*Compare*/
+    else if(EXPR_TYPE == COMPARE){
+        Compare* c = Safe_Cast<Compare*>(expr);
+        int operation = c->getOperation();
+        tuple<string, int> left = compile(c->getLeft());
+        tuple<string, int> right = compile(c->getRight());
+        int ltype = getType(c->getLeft());
+        int rtype = getType(c->getRight());
+        if(ltype != rtype){
+            RaisePineException("Comparison operation require like-type operands.");
+        }
+        if(operation == EQU){
+            string regleft = IntoRegister(get<0>(left));
+            string regright = IntoRegister(get<0>(right));
+            string cmp = "cmpq %"+regleft+", %"+regright;
+            addCompileStmt(cmp);
+            string label = "COMPARE_T"+to_string(requestJumpID());
+            string Short = "COMPARE_F"+to_string(requestShortID());
+            /* Move $1 into the right register */
+            string jmp = "jne "+label;
+            addCompileStmt(jmp);
+            addCompileStmt("movq $1, %"+regright);
+            addCompileStmt("jmp "+Short);
+            addCompileStmt(label+":");
+            addCompileStmt("movq $0, %"+regright);
+            addCompileStmt(Short+":");
+            registerManager.releaseRegister(regleft);
+            return make_tuple(regright, BOOLEAN);
+        }
+        return make_tuple("", -1);
     }
     /*Print*/
     else if(EXPR_TYPE == PRINT){
@@ -238,7 +398,7 @@ string Compiler::requestTmpVarName(){
 }
 
 bool Compiler::isValue(int expr_type){
-    return expr_type == INTEGER || expr_type == VAR || expr_type == FLOAT || expr_type == DOUBLE || expr_type == STRING;
+    return expr_type == INTEGER || expr_type == VAR || expr_type == FLOAT || expr_type == DOUBLE || expr_type == BOOLEAN || expr_type == STRING;
 }
 
 void Compiler::addFlatStmtToStack(Object* stmt){
@@ -368,6 +528,18 @@ int align32ByteStack(int varCount){
     return stackSize;
 }
 int requestFloatID(){
+    static int id = -1;
+    id += 1;
+    return id;
+}
+
+int requestJumpID(){
+    static int id = -1;
+    id += 1;
+    return id;
+}
+
+int requestShortID(){
     static int id = -1;
     id += 1;
     return id;

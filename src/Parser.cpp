@@ -1,5 +1,12 @@
 #include "Parser.hpp"
 
+template <typename T, typename V>
+T absDiff(T x, V y) {
+    T result = x - y;
+    result = result < 0 ? -result : result;
+    return result;
+}
+
 Parser::Parser(){
     map<string, int> m; typeEnv.push(m);
 }
@@ -44,13 +51,16 @@ Object* Parser::generic_parse(){
     }else if(curr == "let"){
         next();
         return let_parse();
+    }else if(curr == "if"){
+        next();
+        return if_parse();
     }else if(curr == "func"){
         next();
         return function_parse();
     }
     /*Atomic token*/
     else{
-        Object* rtn = union_parse();
+        Object* rtn = logical_parse();
         return rtn;
     }
     /*Unexpected lexem*/
@@ -76,6 +86,32 @@ Object* Parser::let_parse(){
     next();
     Object* rval = generic_parse();
     return new Let(lval, type, rval);
+}
+
+Object* Parser::if_parse(){
+    next(); // (
+    Object* condition = generic_parse();
+    next(); // )
+    next(); // {
+    vector<Object*> body;
+    while(curr != "}"){
+        Object* stmt = generic_parse();
+        body.push_back(stmt);
+        next();
+    }
+    next(); // }
+    vector<Object*> Else;
+    if(curr == "else"){
+        next();
+        next();
+        while(curr != "}"){
+            Object* stmt = generic_parse();
+            Else.push_back(stmt);
+            next();
+        }
+        next();
+    }
+    return new If(condition, new Seq(body), new Seq(Else));
 }
 
 Object* Parser::function_parse(){
@@ -104,6 +140,33 @@ Object* Parser::function_parse(){
 }
 
 /* Numerical tokens for expression [Stops on semi-colon] */
+Object* Parser::logical_parse(){
+    Object* result = union_parse();
+    string logical_tokens[] = {"==", "!=", "<=", ">=", "<", ">"};
+    while(in(curr, logical_tokens, sizeof(logical_tokens)/sizeof(logical_tokens[0]))){
+        if(curr == "=="){
+            next();
+            result = new Compare(EQU, result, union_parse());
+        }else if(curr == "!="){
+            next();
+            result = new Compare(NEQ, result, union_parse());
+        }else if(curr == "<"){
+            next();
+            result = new Compare(LT, result, union_parse());
+        }else if(curr == "<="){
+            next();
+            result = new Compare(LTE, result, union_parse());
+        }else if(curr == ">="){
+            next();
+            result = new Compare(GTE, result, union_parse());
+        }else if(curr == ">"){
+            next();
+            result = new Compare(GT, result, union_parse());
+        }
+    }
+    return result;
+}
+
 Object* Parser::union_parse(){
     Object* result = intersect_parse();
     string union_tokens[] = {"+", "-"};
@@ -189,12 +252,20 @@ Object* Parser::atom_parse(){
 
 Object* Parser::is_numeric(string val){
     try {
+        Object* num = nullptr;
         int i = stoi(val);
         float f = stof(val);
-        if(f != i){
-            return new Float(f);
+        double d = stod(val);
+        num = new Integer(i);
+        if(f != i || ((val.find(".") != std::string::npos))){
+            delete num;
+            num = new Float(f);
         }
-        return new Integer(i);
+        if(val.length() - val.rfind(".") > 6){
+            delete num;
+            num = new Double(d);
+        }
+        return num;
     } catch (...) { /* Catch all exceptions for non-numeric value */
         return nullptr;
     }

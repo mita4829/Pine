@@ -27,7 +27,7 @@ enum Expr {
     FUNCTION,
     UNARY,
     SEQ,
-    
+    IF,
     
     REG,
     STACKLOC,
@@ -228,6 +228,20 @@ public:
     Unary(Object* val, int operation);
     Object* getVal();
     int getOperation();
+    virtual void print();
+};
+
+class If : public Object {
+private:
+    Object* condition;
+    Seq* body;
+    Seq* Else = nullptr;
+public:
+    If();
+    If(Object* condition, Seq* body, Seq* Else);
+    Object* getCondition();
+    Seq* getBody();
+    Seq* getElse();
     virtual void print();
 };
 
