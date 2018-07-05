@@ -1,11 +1,6 @@
-matrix:
-    inlcude:
-        - language: cpp
-          os: osx
-          compiler:
-            - gcc
-            - clang
-          before_script:
-            - cd src/ && make
-          script:
-            - python3 RunTests.py
+os: osx
+language: cpp
+before_script:
+    - cd src/ && make
+script:
+    - python3 RunTests.py
