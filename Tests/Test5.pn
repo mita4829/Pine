@@ -1,0 +1,6 @@
+func main() -> Int {
+    for(let i:Int = 0; i <= 5; i = i + 1){
+        print(i*2);
+    };
+};
+

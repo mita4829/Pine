@@ -30,7 +30,7 @@ Object* Compiler::flatten(Object* expr){
         Object* rval = flatten(let->getVal());
         Let* flatten_let = new Let(let->getName(), getType(rval), rval);
         addFlatStmtToStack(flatten_let);
-        return nullptr;
+        return flatten_let;
     }
     /* Assign */
     else if(EXPR_TYPE == ASSIGN){
@@ -39,7 +39,7 @@ Object* Compiler::flatten(Object* expr){
         Object* flat = flatten(a->getVal());
         Assign* f_a = new Assign(a->getVar(), flat);
         addFlatStmtToStack(f_a);
-        return nullptr;
+        return f_a;
     }
     /* Binary */
     else if(EXPR_TYPE == BINARY){
@@ -118,6 +118,16 @@ Object* Compiler::flatten(Object* expr){
         Let* flatten_let = new Let(tmp, BOOLEAN, new Logical(operation, left, right));
         addFlatStmtToStack(flatten_let);
         return new Var(tmp, BOOLEAN);
+    }
+    /*For*/
+    else if(EXPR_TYPE == FOR){
+        For* f = Safe_Cast<For*>(expr);
+        Object* f_decl = (f->getDeclare());
+        Object* f_cond = (f->getCondition());
+        Object* f_incl = (f->getIncl());
+        Seq* f_body = (Seq*)flatten(f->getBody());
+        addFlatStmtToStack(new For(f_decl, f_cond, f_incl, f_body));
+        return nullptr;
     }
     RaisePineWarning("Flatten reached end of token matching.");
     return nullptr;
@@ -200,6 +210,24 @@ tuple<string, int> Compiler::compile(Object* expr){
             string stmt = "xorq $-1, %"+reg;
             addCompileStmt(stmt);
             return make_tuple(reg, REG);
+        }else if(operation == NOT){
+            string nreg = registerManager.getRegister();
+            string stmt = "movq %"+reg+", %"+nreg;
+            string negq = "negq %"+nreg;
+            string sarq = "sarq $61, %"+reg;
+            string nsarq = "sarq $61, %"+nreg;
+            string or_ = "orq %"+reg+", %"+nreg;
+            string and_ = "andq $1, %"+nreg;
+            string xor_ = "xorq $1, %"+nreg;
+            addCompileStmt(stmt);
+            addCompileStmt(negq);
+            addCompileStmt(sarq);
+            addCompileStmt(nsarq);
+            addCompileStmt(or_);
+            addCompileStmt(and_);
+            addCompileStmt(xor_);
+            registerManager.releaseRegister(reg);
+            return make_tuple(nreg, REG);
         }
     }
     /*Function*/
@@ -401,17 +429,17 @@ tuple<string, int> Compiler::compile(Object* expr){
         }else if(operation == NEQ){
             instruction = "je";
         }else if(operation == LT){
-            instruction = "jl";
-        }else if(operation == LTE){
-            instruction = "jle";
-        }else if(operation == GTE){
             instruction = "jge";
-        }else if(operation == GT){
+        }else if(operation == LTE){
             instruction = "jg";
+        }else if(operation == GTE){
+            instruction = "jl";
+        }else if(operation == GT){
+            instruction = "jle";
         }
         string regleft = IntoRegister(get<0>(left));
         string regright = IntoRegister(get<0>(right));
-        string cmp = "cmpq %"+regleft+", %"+regright;
+        string cmp = "cmpq %"+regright+", %"+regleft;
         addCompileStmt(cmp);
         string label = "COMPARE_T"+to_string(requestJumpID());
         string Short = "COMPARE_F"+to_string(requestShortID());
@@ -478,6 +506,26 @@ tuple<string, int> Compiler::compile(Object* expr){
         }
         registerManager.releaseRegister(regleft);
         return make_tuple(regright, REG);
+    }
+    /*For*/
+    else if(EXPR_TYPE == FOR){
+        For* f = Safe_Cast<For*>(expr);
+        compile(f->getDeclare());
+        string label = "FOR_"+to_string(requestJumpID());
+        addCompileStmt(label+":");
+        string Short = "FOR_E"+to_string(requestShortID());
+        tuple<string, int> result = compile(f->getCondition());
+        string reg = IntoRegister(get<0>(result));
+        string cmpq = "cmpq $1, %"+reg;
+        string jne = "jne "+Short;
+        addCompileStmt(cmpq);
+        addCompileStmt(jne);
+        compile(f->getBody());
+        compile(f->getIncl());
+        string jmp = "jmp "+label;
+        addCompileStmt(jmp);
+        addCompileStmt(Short+":");
+        return make_tuple("", -1);
     }
     RaisePineWarning("Compiler reached end of token matching: "+to_string(EXPR_TYPE));
     return make_tuple("", -1);
@@ -561,9 +609,9 @@ void Compiler::pushNewStackLocationMap(){
 
 void Compiler::mapVarToStackLocation(string name){
     map<string, int>* frame = &(stackLoc.top());
-    if(frame->count(name) > 0){
-        RaisePineException("Redeclarion of variable named: "+name);
-    }
+//    if(frame->count(name) > 0){
+//        RaisePineException("Redeclarion of variable named: "+name);
+//    }
     int loc = (frame->size() + 1) << 3; /* Stack address are aligned by 0x8.
                                          Give the Var the next location based
                                          on the given size of the scope's variable

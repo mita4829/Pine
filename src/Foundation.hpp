@@ -30,6 +30,8 @@ enum Expr {
     IF,
     LOGICAL,
     ASSIGN,
+    FOR,
+    WHILE,
     
     REG,
     STACKLOC,
@@ -272,6 +274,22 @@ public:
     Assign(Object*, Object*);
     Object* getVar();
     Object* getVal();
+    virtual void print();
+};
+
+class For : public Object {
+private:
+    Object* declare;
+    Object* condition;
+    Object* incrementor;
+    Seq* body;
+public:
+    For();
+    For(Object*, Object*, Object*, Seq*);
+    Object* getDeclare();
+    Object* getCondition();
+    Object* getIncl();
+    Seq* getBody();
     virtual void print();
 };
 

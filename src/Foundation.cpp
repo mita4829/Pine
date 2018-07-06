@@ -389,10 +389,44 @@ Object* Assign::getVal(){
     return val;
 }
 void Assign::print(){
-    cout << "Assign(" << name << ", ";
+    cout << "Assign(";
+    name->print();
+    cout << ", ";
     val->print();
     cout << ")";
 }
+
+For::For(){Type = FOR;}
+For::For(Object* decl, Object* cond, Object* incl, Seq* _body) : For() {
+    declare = decl;
+    condition = cond;
+    incrementor = incl;
+    body = _body;
+}
+Object* For::getDeclare(){
+    return declare;
+}
+Object* For::getCondition(){
+    return condition;
+}
+Object* For::getIncl(){
+    return incrementor;
+}
+Seq* For::getBody(){
+    return body;
+}
+void For::print(){
+    cout << "For(";
+    declare->print();
+    cout << ", ";
+    condition->print();
+    cout << ", ";
+    incrementor->print();
+    cout << ", ";
+    body->print();
+    cout << ")";
+}
+
 
 void DEBUG(string message){
     cout << "\e[0;32m" << "DEBUG: " << "\e[0m" << message << endl;

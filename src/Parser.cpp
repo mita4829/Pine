@@ -57,6 +57,9 @@ Object* Parser::generic_parse(){
     }else if(curr == "func"){
         next();
         return function_parse();
+    }else if(curr == "for"){
+        next();
+        return for_parse();
     }
     /*Atomic token*/
     else{
@@ -115,6 +118,27 @@ Object* Parser::if_parse(){
         next();
     }
     return new If(condition, new Seq(body), new Seq(Else));
+}
+
+Object* Parser::for_parse(){
+    pushNewTypeEnv();
+    next(); // (
+    Object* decl = generic_parse();
+    next(); // ;
+    Object* cond = generic_parse();
+    next(); // ;
+    Object* incl = generic_parse();
+    next(); // )
+    next(); // {
+    vector<Object*> body;
+    while(curr != "}"){
+        Object* stmt = generic_parse();
+        body.push_back(stmt);
+        next();
+    }
+    next(); /* } */
+    popTypeEnv();
+    return new For(decl, cond, incl, new Seq(body));
 }
 
 Object* Parser::function_parse(){

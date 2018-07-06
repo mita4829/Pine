@@ -35,6 +35,7 @@ public:
     Object* print_parse();
     Object* let_parse();
     Object* if_parse();
+    Object* for_parse();
     Object* function_parse();
     Object* logical_or();
     Object* logical_and();
