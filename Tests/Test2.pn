@@ -1,0 +1,16 @@
+func main() -> Int {
+    let one:Int = 1;
+    let two:Int = 2;
+    let lt:Bool  = one < two;
+    let lte:Bool = one <= two;
+    let equ:Bool = one == two;
+    let neq:Bool = one != two;
+    let gte:Bool = one >= two;
+    let gt:Bool  = one > two;
+    print(lt);
+    print(lte);
+    print(equ);
+    print(neq);
+    print(gte);
+    print(gt);
+};

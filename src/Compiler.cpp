@@ -28,8 +28,17 @@ Object* Compiler::flatten(Object* expr){
     else if(EXPR_TYPE == LET){
         Let* let = Safe_Cast<Let*>(expr);
         Object* rval = flatten(let->getVal());
-        Let* flatten_let = new Let(let->getName(), let->getExpectedType(), rval);
+        Let* flatten_let = new Let(let->getName(), getType(rval), rval);
         addFlatStmtToStack(flatten_let);
+        return nullptr;
+    }
+    /* Assign */
+    else if(EXPR_TYPE == ASSIGN){
+        /* Work here */
+        Assign* a = Safe_Cast<Assign*>(expr);
+        Object* flat = flatten(a->getVal());
+        Assign* f_a = new Assign(a->getVar(), flat);
+        addFlatStmtToStack(f_a);
         return nullptr;
     }
     /* Binary */
@@ -187,6 +196,10 @@ tuple<string, int> Compiler::compile(Object* expr){
             string stmt = "negq %" + reg;
             addCompileStmt(stmt);
             return make_tuple(reg, REG);
+        }else if(operation == IVT){
+            string stmt = "xorq $-1, %"+reg;
+            addCompileStmt(stmt);
+            return make_tuple(reg, REG);
         }
     }
     /*Function*/
@@ -239,6 +252,18 @@ tuple<string, int> Compiler::compile(Object* expr){
         mapVarToStackLocation(name);
         int stackLocation = getStackLocationForVar(name);
         string stmt = "movq %" + reg + ", -" + to_string(stackLocation) + "(%rbp)";
+        addCompileStmt(stmt);
+        registerManager.releaseRegister(reg);
+        return make_tuple("", -1);
+    }
+    /*Assign*/
+    else if(EXPR_TYPE == ASSIGN){
+        Assign* a = Safe_Cast<Assign*>(expr);
+        Object* rval = a->getVal();
+        string reg = IntoRegister(get<0>(compile(rval)));
+        string varName = Safe_Cast<Var*>(a->getVar())->getName();
+        int stackLocation = getStackLocationForVar(varName);
+        string stmt = "movq %"+reg+", -"+to_string(stackLocation)+"(%rbp)";
         addCompileStmt(stmt);
         registerManager.releaseRegister(reg);
         return make_tuple("", -1);

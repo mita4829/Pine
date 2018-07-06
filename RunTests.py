@@ -20,6 +20,7 @@ for file in files:
     os.system("rm output Pine.s a.out")
     if(not same):
         print(RED + "Failed: "+ NORMAL + file)
+        os.system("diff "+file+" ../Test_Expected/"+ans)
         exit()
 
 print(GREEN + "All tests passed!" + NORMAL)

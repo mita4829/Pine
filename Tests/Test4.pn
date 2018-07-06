@@ -1,0 +1,6 @@
+func main() -> Int {
+    let p:Bool = True;
+    let q:Bool = False;
+    let r:Bool = (p && q) || ((p && p) || q && p);
+    print(r);
+};

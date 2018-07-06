@@ -79,11 +79,14 @@ Object* Parser::print_parse(){
 Object* Parser::let_parse(){
     string lval = curr;
     next(); // :
-    next();
-    int type = translateType(curr);
+    int type = OBJECT;
+    if(curr == ":"){
+        next();
+        type = translateType(curr);
+        next();
+    }
     bindType(lval, type);
     next(); // =
-    next();
     Object* rval = generic_parse();
     return new Let(lval, type, rval);
 }
@@ -160,7 +163,7 @@ Object* Parser::logical_and(){
 /* Numerical tokens for expression [Stops on semi-colon] */
 Object* Parser::logical_parse(){
     Object* result = union_parse();
-    string logical_tokens[] = {"==", "!=", "<=", ">=", "<", ">"};
+    string logical_tokens[] = {"==", "!=", "=", "<=", ">=", "<", ">"};
     while(in(curr, logical_tokens, sizeof(logical_tokens)/sizeof(logical_tokens[0]))){
         if(curr == "=="){
             next();
@@ -168,6 +171,9 @@ Object* Parser::logical_parse(){
         }else if(curr == "!="){
             next();
             result = new Compare(NEQ, result, union_parse());
+        }else if(curr == "="){
+            next();
+            result = new Assign(result, generic_parse());
         }else if(curr == "<"){
             next();
             result = new Compare(LT, result, union_parse());

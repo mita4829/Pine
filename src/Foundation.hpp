@@ -29,6 +29,7 @@ enum Expr {
     SEQ,
     IF,
     LOGICAL,
+    ASSIGN,
     
     REG,
     STACKLOC,
@@ -260,6 +261,18 @@ public:
   Object* getLeft();
   Object* getRight();
   virtual void print();
+};
+
+class Assign : public Object {
+private:
+    Object* name;
+    Object* val = nullptr;
+public:
+    Assign();
+    Assign(Object*, Object*);
+    Object* getVar();
+    Object* getVal();
+    virtual void print();
 };
 
 

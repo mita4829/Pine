@@ -377,6 +377,23 @@ void Logical::print(){
     cout << ")";
 }
 
+Assign::Assign(){Type = ASSIGN;}
+Assign::Assign(Object* _name, Object* _val) : Assign() {
+    name = _name;
+    val = _val;
+}
+Object* Assign::getVar(){
+    return name;
+}
+Object* Assign::getVal(){
+    return val;
+}
+void Assign::print(){
+    cout << "Assign(" << name << ", ";
+    val->print();
+    cout << ")";
+}
+
 void DEBUG(string message){
     cout << "\e[0;32m" << "DEBUG: " << "\e[0m" << message << endl;
 }

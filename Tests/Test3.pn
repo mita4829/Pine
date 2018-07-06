@@ -1,0 +1,9 @@
+func main() -> Int {
+    let answer:Int = 42;
+    let reverse:Int = -answer;
+    if(answer == -reverse){
+        print(answer);
+    }else{
+        print(reverse);
+    };
+};
