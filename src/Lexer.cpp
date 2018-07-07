@@ -42,12 +42,13 @@ void Lexer::lex(std::string file){
         else if(stream[r] == '"'){
             if(inString){
                 inString = false;
-                tokens.push_back(stream.substr(l, r-l));
+                tokens.push_back(stream.substr(l, r-l+1));
+                r += 1;
             }else{
                 inString = true;
             }
-            r += 1;
             l = r;
+            r += 1;
         }/*Paren matching*/
         else if(stream[r] == '(' && !inString){
             if(stream.substr(l,r-l) != ""){

@@ -75,7 +75,8 @@ LBB0_11:
 	jne	LBB0_13
 ## BB#12:
 	leaq	L_.str.5(%rip), %rdi
-	movq	-16(%rbp), %rsi
+	movq	-16(%rbp), %rax
+	movq	(%rax), %rsi
 	movb	$0, %al
 	callq	_printf
 	movl	%eax, -44(%rbp)         ## 4-byte Spill

@@ -161,6 +161,20 @@ tuple<string, int> Compiler::compile(Object* expr){
         addCompileStmt(movq);
         return make_tuple("%xmm0", REG);
     }
+    /*String*/
+    else if(EXPR_TYPE == STRING){
+        String* s = Safe_Cast<String*>(expr);
+        string val = s->getVal();
+        int id = requestFloatID();
+        string stmt = "STR_"+to_string(id)+".str";
+        string str = ".asciz " + val;
+        header.push_back(stmt+":");
+        header.push_back(str);
+        string reg = registerManager.getRegister();
+        string leaq = "leaq " + stmt + "(%rip), %"+reg;
+        addCompileStmt(leaq);
+        return make_tuple(reg, REG);
+    }
     /*Double*/
     else if(EXPR_TYPE == DOUBLE){
         Double* d = Safe_Cast<Double*>(expr);

@@ -121,7 +121,6 @@ Object* Parser::if_parse(){
 }
 
 Object* Parser::for_parse(){
-    pushNewTypeEnv();
     next(); // (
     Object* decl = generic_parse();
     next(); // ;
@@ -137,7 +136,6 @@ Object* Parser::for_parse(){
         next();
     }
     next(); /* } */
-    popTypeEnv();
     return new For(decl, cond, incl, new Seq(body));
 }
 
@@ -292,6 +290,11 @@ Object* Parser::atom_parse(){
     }
     /* Numeric value */
     else if((result = is_numeric(curr))){
+        next();
+    }
+    /* String */
+    else if(curr[0] == '"'){
+        result = new String(curr);
         next();
     }
     
