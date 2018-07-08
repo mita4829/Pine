@@ -24,8 +24,8 @@ Lcfi2:
 	movl	(%rax), %esi
 	movb	$0, %al
 	callq	_printf
-	movl	%eax, -20(%rbp)         ## 4-byte Spill
-	jmp	LBB0_12
+	movl	%eax, -24(%rbp)         ## 4-byte Spill
+	jmp	LBB0_18
 LBB0_2:
 	cmpl	$5, -4(%rbp)
 	jne	LBB0_4
@@ -35,8 +35,8 @@ LBB0_2:
 	cvtss2sd	(%rax), %xmm0
 	movb	$1, %al
 	callq	_printf
-	movl	%eax, -24(%rbp)         ## 4-byte Spill
-	jmp	LBB0_12
+	movl	%eax, -28(%rbp)         ## 4-byte Spill
+	jmp	LBB0_18
 LBB0_4:
 	cmpl	$6, -4(%rbp)
 	jne	LBB0_6
@@ -46,31 +46,56 @@ LBB0_4:
 	movsd	(%rax), %xmm0           ## xmm0 = mem[0],zero
 	movb	$1, %al
 	callq	_printf
-	movl	%eax, -28(%rbp)         ## 4-byte Spill
-	jmp	LBB0_12
-LBB0_6:
-	cmpl	$7, -4(%rbp)
-	jne	LBB0_8
-## BB#7:
-	leaq	L_.str.3(%rip), %rdi
-	movq	-16(%rbp), %rsi
-	movb	$0, %al
-	callq	_printf
 	movl	%eax, -32(%rbp)         ## 4-byte Spill
-	jmp	LBB0_12
-LBB0_8:
-	jmp	LBB0_9
-LBB0_9:
-	jmp	LBB0_10
-LBB0_10:
-	jmp	LBB0_11
-LBB0_11:
-	leaq	L_.str.4(%rip), %rdi
-	movl	-4(%rbp), %esi
+	jmp	LBB0_18
+LBB0_6:
+	cmpl	$3, -4(%rbp)
+	jne	LBB0_11
+## BB#7:
+	movq	-16(%rbp), %rax
+	movl	(%rax), %ecx
+	movl	%ecx, -20(%rbp)
+	cmpl	$1, -20(%rbp)
+	jne	LBB0_9
+## BB#8:
+	leaq	L_.str.3(%rip), %rdi
 	movb	$0, %al
 	callq	_printf
 	movl	%eax, -36(%rbp)         ## 4-byte Spill
-LBB0_12:
+	jmp	LBB0_10
+LBB0_9:
+	leaq	L_.str.4(%rip), %rdi
+	movb	$0, %al
+	callq	_printf
+	movl	%eax, -40(%rbp)         ## 4-byte Spill
+LBB0_10:
+	jmp	LBB0_18
+LBB0_11:
+	cmpl	$7, -4(%rbp)
+	jne	LBB0_13
+## BB#12:
+	leaq	L_.str.5(%rip), %rdi
+	movq	-16(%rbp), %rax
+	movq	(%rax), %rsi
+	movb	$0, %al
+	callq	_printf
+	movl	%eax, -44(%rbp)         ## 4-byte Spill
+	jmp	LBB0_18
+LBB0_13:
+	jmp	LBB0_14
+LBB0_14:
+	jmp	LBB0_15
+LBB0_15:
+	jmp	LBB0_16
+LBB0_16:
+	jmp	LBB0_17
+LBB0_17:
+	leaq	L_.str.6(%rip), %rdi
+	movl	-4(%rbp), %esi
+	movb	$0, %al
+	callq	_printf
+	movl	%eax, -48(%rbp)         ## 4-byte Spill
+LBB0_18:
 	addq	$48, %rsp
 	popq	%rbp
 	retq
@@ -87,9 +112,15 @@ L_.str.2:                               ## @.str.2
 	.asciz	"%lf\n"
 
 L_.str.3:                               ## @.str.3
-	.asciz	"%s\n"
+	.asciz	"True\n"
 
 L_.str.4:                               ## @.str.4
+	.asciz	"False\n"
+
+L_.str.5:                               ## @.str.5
+	.asciz	"%s\n"
+
+L_.str.6:                               ## @.str.6
 	.asciz	"Unknown id: %d\n"
 
 

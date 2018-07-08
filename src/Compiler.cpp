@@ -539,6 +539,7 @@ tuple<string, int> Compiler::compile(Object* expr){
         string jmp = "jmp "+label;
         addCompileStmt(jmp);
         addCompileStmt(Short+":");
+        registerManager.releaseRegister(reg);
         return make_tuple("", -1);
     }
     RaisePineWarning("Compiler reached end of token matching: "+to_string(EXPR_TYPE));
