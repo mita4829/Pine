@@ -1,0 +1,23 @@
+func main() -> Int {
+    let a:Float = 2.14159;
+    let b:Float = 1.0;
+    print(a+b);
+
+    let c:Float = 4.718;
+    let d:Float = 2.0;
+    print(c-d);
+
+    let sqrt:Float = 1.41421;
+    print(sqrt*sqrt);
+
+    let e:Float = 1.618;
+    let f:Float = 2.0;
+    print(e/f);
+
+    let inf:Float = 1.0 / 0.0;
+    print(inf);
+
+    let nan:Float = 0.0 / 0.0;
+    print(nan);
+};
+
