@@ -9,6 +9,7 @@ enum Expr {
     FLOAT,
     DOUBLE,
     STRING,
+    VOID,
     LET,
     BINARY,
     COMPARE,
@@ -16,34 +17,58 @@ enum Expr {
     FUNCTION,
     UNARY,
     SEQ,
-    
-    
-    REG,
+    IF,
+    LOGICAL,
+    ASSIGN,
+    FOR,
+    WHILE,
     STACKLOC,
+    REG,
 };
 
 void PinePrint(int id, void* val){
     if(id == INTEGER){
-        printf("%d\n", *((int*)val));
+        printf("%d", *((int*)val));
         return;
     }else if(id == FLOAT){
-        printf("%f\n", *((float*)val));
+        printf("%f", *((float*)val));
         return;
     }else if(id == DOUBLE){
-        printf("%lf\n", *((double*)val));
+        printf("%lf", *((double*)val));
         return;
     }else if(id == BOOLEAN){
         int r = *((int*)val);
         if(r == 1){
-            printf("True\n");
+            printf("True");
         }else{
-            printf("False\n");
+            printf("False");
         }
         return;
     }
     else if(id == STRING){
-        printf("%s\n", *((char**)val));
+        printf("%s", *((char**)val));
         return;
     }
     printf("Unknown id: %d\n", id);
+}
+
+void PinePrintInt(int val){
+    printf("%d", val);
+}
+
+void PinePrintString(char* val){
+    printf("%s", val);
+}
+
+void PinePrintBoolean(int val){
+    if(val){
+        printf("True");
+    }
+    else{
+        printf("False");
+    }
+}
+
+void PinePrintFloat(float val){
+    printf("%f", val);
 }

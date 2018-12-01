@@ -1,3 +1,4 @@
+/* Standard math test */
 func main() -> Int {
     let add:Int = 1+2+3;
     print(add);

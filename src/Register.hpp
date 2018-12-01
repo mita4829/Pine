@@ -12,7 +12,6 @@ enum {
     r9,
     r10,
     r11,
-    /* Callee Save */
     rbx,
     rdi,
     rsi,
@@ -24,15 +23,16 @@ enum {
 
 class Register {
 private:
-    set<int> callee_save_reg;
-    set<int> caller_save_reg;
-    string translateEnumIDToString(int);
+    set<Int32> callee_save_reg;
+    set<Int32> caller_save_reg;
+    string translateEnumIDToString(Int32);
 public:
     Register();
     /* Returns a register name, volitile nature, enum id */
     string getRegister();
-    void releaseRegister(int enumID);
+    void releaseRegister(Int32 enumID);
     void releaseRegister(string reg);
 };
 
 #endif
+

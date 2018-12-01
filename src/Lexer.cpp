@@ -1,24 +1,43 @@
 #include "Lexer.hpp"
 
-std::vector<std::vector<std::string>> Lexer::lexem;
+vector<vector<string>> Lexer::lexem;
 
-void Lexer::lex(std::string file){
-    std::regex spaces("\\s+");
-    std::string stream = regex_replace(file, spaces, " ");
-    std::vector<std::string> tokens;
+/*
+ lex
+ Routine
+    Lexes a Pine source file into lexems
+ Parameters
+    file: The file name of a Pine source file
+ Return:
+    None
+ */
+void Lexer::lex(string filename){
+    LOG("Lexer:lex("+filename+")");
+    ifstream ifs(filename);
+    string sourceCode((istreambuf_iterator<Char>(ifs)),
+                      (istreambuf_iterator<Char>()));
+    ifs.close();
     
-    std::string ops[] =  {"==","!=","||","&&","<=",">=","->","<<",">>"};
-    char sig[] =  {':','+','-','*','/','=','%','>','<','!','[',']',',','&','|','~'};
+    regex spaces("\\s+");
+    string stream = regex_replace(sourceCode, spaces, " ");
+    vector<string> tokens;
     
-    int inScope = 0;
-    bool inString = false;
-    int l = 0;
-    int r = 0;
-    const int stream_length = stream.length();
+    string ops_token[] =  {"==","!=","||","&&","<=",">=","->","<<",">>"};
+    Char   sig_token[] =  {':','+','-','*','/','=','%','>','<','!','[',']',',','&','|','~'};
+    
+    set<string> ops(begin(ops_token), end(ops_token));
+    set<Char>   sig(begin(sig_token), end(sig_token));
+    
+    UInt32   inScope = 0;
+    bool    inString = false;
+    bool   inComment = false;
+    UInt32         l = 0;
+    UInt32         r = 0;
+    const UInt32 stream_length = stream.length();
     
     while(r < stream_length){
         /* Accept a non-empty token */
-        if(stream[r] == ' ' && !inString){
+        if(stream[r] == ' ' && !inString && !inComment){
             if(stream.substr(l,r-l) != ""){
                 tokens.push_back(stream.substr(l,r-l));
             }
@@ -26,7 +45,7 @@ void Lexer::lex(std::string file){
             l = r;
         }
         /* Accept token + ; */
-        else if(stream[r] == ';' && !inString){
+        else if(stream[r] == ';' && !inString && !inComment){
             if(stream.substr(l, r-l) != ""){
                 tokens.push_back(stream.substr(l, r-l));
             }
@@ -39,18 +58,19 @@ void Lexer::lex(std::string file){
             }
         }
         /* Strings */
-        else if(stream[r] == '"'){
-            if(inString){
+        else if(stream[r] == '"' && !inComment){
+            if(inString == false){
+                inString = true;
+                l = r;
+                r += 1;
+            }else{
                 inString = false;
                 tokens.push_back(stream.substr(l, r-l+1));
                 r += 1;
-            }else{
-                inString = true;
+                l = r;
             }
-            l = r;
-            r += 1;
         }/*Paren matching*/
-        else if(stream[r] == '(' && !inString){
+        else if(stream[r] == '(' && !inString && !inComment){
             if(stream.substr(l,r-l) != ""){
                 tokens.push_back(stream.substr(l,r-l));
             }
@@ -58,7 +78,7 @@ void Lexer::lex(std::string file){
             inScope += 1;
             r += 1;
             l = r;
-        }else if(stream[r] == ')' && !inString){
+        }else if(stream[r] == ')' && !inString && !inComment){
             if(stream.substr(l,r-l) != ""){
                 tokens.push_back(stream.substr(l,r-l));
             }
@@ -68,7 +88,7 @@ void Lexer::lex(std::string file){
             l = r;
         }
         /*Curry bracket matching*/
-        else if(stream[r] == '{' && !inString){
+        else if(stream[r] == '{' && !inString && !inComment){
             if(stream.substr(l,r-l) != ""){
                 tokens.push_back(stream.substr(l,r-l));
             }
@@ -76,7 +96,7 @@ void Lexer::lex(std::string file){
             inScope += 1;
             r += 1;
             l = r;
-        }else if(stream[r] == '}' && !inString){
+        }else if(stream[r] == '}' && !inString && !inComment){
             if(stream.substr(l,r-l) != ""){
                 tokens.push_back(stream.substr(l,r-l));
             }
@@ -85,8 +105,29 @@ void Lexer::lex(std::string file){
             r += 1;
             l = r;
         }
+        /* Comment */
+        else if(!inString &&
+                 (stream.substr(r,2) == "/*" ||
+                  stream.substr(r,2) == "*/"))
+        {
+            if(stream.substr(r,2) == "/*"){
+                inComment = true;
+                r += 1;
+            }else{
+                if(!inComment){
+                    /* There could be a case where the source contains
+                       an end comment token, which is ignore, but still
+                       invalid in syntax. Thrown an exception.
+                     */
+                    RaisePineException("Unmatching */ token found.");
+                }
+                r += 2;
+                l = r;
+                inComment = false;
+            }
+        }
         /*Double character tokens*/
-        else if(!inString && in<std::string>(stream.substr(r,2),ops,sizeof(ops)/sizeof(ops[0]))){
+        else if(!inString && !inComment && ops.find(stream.substr(r,2)) != ops.end()){
             if(stream.substr(l,r-l) != ""){
                 tokens.push_back(stream.substr(l,r-l));
             }
@@ -95,7 +136,7 @@ void Lexer::lex(std::string file){
             l = r;
         }
         /*Single character tokens*/
-        else if(!inString && in<char>(stream[r],sig,sizeof(sig)/sizeof(sig[0]))){
+        else if(!inString && !inComment && sig.find(stream[r]) != sig.end()){
             if(stream.substr(l,r-l) != ""){
                 tokens.push_back(stream.substr(l,r-l));
             }

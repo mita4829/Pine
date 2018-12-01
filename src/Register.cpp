@@ -1,10 +1,13 @@
+
 #include "Register.hpp"
 
 Register::Register(){
-    for(int i = 0; i <= 6; i++){
+    LOG("Register:Register");
+    for(Int32 i = 0; i <= 6; i++){
         caller_save_reg.insert(i);
         callee_save_reg.insert(i + 7);
     }
+    LOG("Register:-Register");
 }
 
 string Register::translateEnumIDToString(int id){
@@ -28,29 +31,36 @@ string Register::translateEnumIDToString(int id){
 }
 
 string Register::getRegister(){
+    LOG("Register:getRegister");
     if(caller_save_reg.size() == 0 && caller_save_reg.size() == 0){
         /* Out of registers, need to spill */
         return "";
     }
     if(callee_save_reg.size() > 0){
-        int id = *(callee_save_reg.begin());
+        Int32 id = *(callee_save_reg.begin());
         callee_save_reg.erase(id);
         return translateEnumIDToString(id);
     }
-    int id = *(caller_save_reg.begin());
+    Int32 id = *(caller_save_reg.begin());
     caller_save_reg.erase(id);
+    LOG("Register:-getRegister");
     return translateEnumIDToString(id);
 }
 
-void Register::releaseRegister(int id){
+void Register::releaseRegister(Int32 id){
+    LOG("Register:releaseRegister(Int32)");
+    LOG("    id:"+STR(id));
     if(id <= 6){
         caller_save_reg.insert(id);
     }else{
         callee_save_reg.insert(id);
     }
+    LOG("Register:-releaseRegister(Int32)");
 }
 
 void Register::releaseRegister(string reg){
+    LOG("Register:releaseRegister(string)");
+    LOG("    id:"+reg);
     string translationTable[] = {
         "rax",
         "rcx",
@@ -67,9 +77,10 @@ void Register::releaseRegister(string reg){
         "r14",
         "r15",
     };
-    for(int i = 0; i < 14; i++){
+    for(Int32 i = 0; i < 14; i++){
         if(translationTable[i] == reg){
             releaseRegister(i);
+            LOG("Register:-releaseRegister(string)");
             return;
         }
     }
