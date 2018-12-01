@@ -1,24 +1,21 @@
 	.section	__TEXT,__text,regular,pure_instructions
-	.macosx_version_min 10, 13
+	.build_version macos, 10, 14
 	.globl	_PinePrint              ## -- Begin function PinePrint
 	.p2align	4, 0x90
 _PinePrint:                             ## @PinePrint
 	.cfi_startproc
-## BB#0:
+## %bb.0:
 	pushq	%rbp
-Lcfi0:
 	.cfi_def_cfa_offset 16
-Lcfi1:
 	.cfi_offset %rbp, -16
 	movq	%rsp, %rbp
-Lcfi2:
 	.cfi_def_cfa_register %rbp
 	subq	$48, %rsp
 	movl	%edi, -4(%rbp)
 	movq	%rsi, -16(%rbp)
 	cmpl	$4, -4(%rbp)
 	jne	LBB0_2
-## BB#1:
+## %bb.1:
 	leaq	L_.str(%rip), %rdi
 	movq	-16(%rbp), %rax
 	movl	(%rax), %esi
@@ -29,10 +26,11 @@ Lcfi2:
 LBB0_2:
 	cmpl	$5, -4(%rbp)
 	jne	LBB0_4
-## BB#3:
+## %bb.3:
 	leaq	L_.str.1(%rip), %rdi
 	movq	-16(%rbp), %rax
-	cvtss2sd	(%rax), %xmm0
+	movss	(%rax), %xmm0           ## xmm0 = mem[0],zero,zero,zero
+	cvtss2sd	%xmm0, %xmm0
 	movb	$1, %al
 	callq	_printf
 	movl	%eax, -28(%rbp)         ## 4-byte Spill
@@ -40,7 +38,7 @@ LBB0_2:
 LBB0_4:
 	cmpl	$6, -4(%rbp)
 	jne	LBB0_6
-## BB#5:
+## %bb.5:
 	leaq	L_.str.2(%rip), %rdi
 	movq	-16(%rbp), %rax
 	movsd	(%rax), %xmm0           ## xmm0 = mem[0],zero
@@ -51,13 +49,13 @@ LBB0_4:
 LBB0_6:
 	cmpl	$3, -4(%rbp)
 	jne	LBB0_11
-## BB#7:
+## %bb.7:
 	movq	-16(%rbp), %rax
 	movl	(%rax), %ecx
 	movl	%ecx, -20(%rbp)
 	cmpl	$1, -20(%rbp)
 	jne	LBB0_9
-## BB#8:
+## %bb.8:
 	leaq	L_.str.3(%rip), %rdi
 	movb	$0, %al
 	callq	_printf
@@ -73,7 +71,7 @@ LBB0_10:
 LBB0_11:
 	cmpl	$7, -4(%rbp)
 	jne	LBB0_13
-## BB#12:
+## %bb.12:
 	leaq	L_.str.5(%rip), %rdi
 	movq	-16(%rbp), %rax
 	movq	(%rax), %rsi
@@ -101,24 +99,124 @@ LBB0_18:
 	retq
 	.cfi_endproc
                                         ## -- End function
+	.globl	_PinePrintInt           ## -- Begin function PinePrintInt
+	.p2align	4, 0x90
+_PinePrintInt:                          ## @PinePrintInt
+	.cfi_startproc
+## %bb.0:
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register %rbp
+	subq	$16, %rsp
+	leaq	L_.str(%rip), %rax
+	movl	%edi, -4(%rbp)
+	movl	-4(%rbp), %esi
+	movq	%rax, %rdi
+	movb	$0, %al
+	callq	_printf
+	movl	%eax, -8(%rbp)          ## 4-byte Spill
+	addq	$16, %rsp
+	popq	%rbp
+	retq
+	.cfi_endproc
+                                        ## -- End function
+	.globl	_PinePrintString        ## -- Begin function PinePrintString
+	.p2align	4, 0x90
+_PinePrintString:                       ## @PinePrintString
+	.cfi_startproc
+## %bb.0:
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register %rbp
+	subq	$16, %rsp
+	leaq	L_.str.5(%rip), %rax
+	movq	%rdi, -8(%rbp)
+	movq	-8(%rbp), %rsi
+	movq	%rax, %rdi
+	movb	$0, %al
+	callq	_printf
+	movl	%eax, -12(%rbp)         ## 4-byte Spill
+	addq	$16, %rsp
+	popq	%rbp
+	retq
+	.cfi_endproc
+                                        ## -- End function
+	.globl	_PinePrintBoolean       ## -- Begin function PinePrintBoolean
+	.p2align	4, 0x90
+_PinePrintBoolean:                      ## @PinePrintBoolean
+	.cfi_startproc
+## %bb.0:
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register %rbp
+	subq	$16, %rsp
+	movl	%edi, -4(%rbp)
+	cmpl	$0, -4(%rbp)
+	je	LBB3_2
+## %bb.1:
+	leaq	L_.str.3(%rip), %rdi
+	movb	$0, %al
+	callq	_printf
+	movl	%eax, -8(%rbp)          ## 4-byte Spill
+	jmp	LBB3_3
+LBB3_2:
+	leaq	L_.str.4(%rip), %rdi
+	movb	$0, %al
+	callq	_printf
+	movl	%eax, -12(%rbp)         ## 4-byte Spill
+LBB3_3:
+	addq	$16, %rsp
+	popq	%rbp
+	retq
+	.cfi_endproc
+                                        ## -- End function
+	.globl	_PinePrintFloat         ## -- Begin function PinePrintFloat
+	.p2align	4, 0x90
+_PinePrintFloat:                        ## @PinePrintFloat
+	.cfi_startproc
+## %bb.0:
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register %rbp
+	subq	$16, %rsp
+	leaq	L_.str.1(%rip), %rdi
+	movss	%xmm0, -4(%rbp)
+	movss	-4(%rbp), %xmm0         ## xmm0 = mem[0],zero,zero,zero
+	cvtss2sd	%xmm0, %xmm0
+	movb	$1, %al
+	callq	_printf
+	movl	%eax, -8(%rbp)          ## 4-byte Spill
+	addq	$16, %rsp
+	popq	%rbp
+	retq
+	.cfi_endproc
+                                        ## -- End function
 	.section	__TEXT,__cstring,cstring_literals
 L_.str:                                 ## @.str
-	.asciz	"%d\n"
+	.asciz	"%d"
 
 L_.str.1:                               ## @.str.1
-	.asciz	"%f\n"
+	.asciz	"%f"
 
 L_.str.2:                               ## @.str.2
-	.asciz	"%lf\n"
+	.asciz	"%lf"
 
 L_.str.3:                               ## @.str.3
-	.asciz	"True\n"
+	.asciz	"True"
 
 L_.str.4:                               ## @.str.4
-	.asciz	"False\n"
+	.asciz	"False"
 
 L_.str.5:                               ## @.str.5
-	.asciz	"%s\n"
+	.asciz	"%s"
 
 L_.str.6:                               ## @.str.6
 	.asciz	"Unknown id: %d\n"

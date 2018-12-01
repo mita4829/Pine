@@ -1,29 +1,30 @@
-#include "Foundation.hpp"
 #ifndef PARSER_HPP
 #define PARSER_HPP
-
-enum Numeric {
-    Int_Num,
-    Float_Num,
-    Double_Num,
-    Non_Numeric,
-};
-
+#include "Foundation.hpp"
+#include "Static.hpp"
 
 class Parser {
 private:
-    vector<Object*> abstract_syntax_tree;
-    vector<vector<string>> lexems;
-    vector<string> line;
-    vector<set<string>> varScope;
-    stack<map<string, int>> typeEnv;
+    vector<Object*>     abstract_syntax_tree;
+    vector<vector<string>>            lexems;
+    vector<string>                      line;
+    stack<map<string, Object*>>  varBindings;
+    stack<map<string, Int32>>        typeEnv;
+    string                              curr;
+    /* volatileVar when greater than zero prevent variable names from being
+       replaced with its value. This is useful when optimizating
+       inside a loop to assume all variable to be volatile.
+     */
+    Int32                       volatileVars = 0;
+    Static analyzer = Static::getStaticAnalyzer();
     
-    string curr;
-    int lineIndex;
+    Int32 lineIndex;
     void next();
+    string peek();
     
     Object* is_numeric(string val);
-    int translateType(string type);
+    Int32 translateType(string type);
+    
 public:
     Parser();
     ~Parser();
@@ -36,6 +37,7 @@ public:
     Object* let_parse();
     Object* if_parse();
     Object* for_parse();
+    Object* while_parse();
     Object* function_parse();
     Object* logical_or();
     Object* logical_and();
@@ -48,9 +50,12 @@ public:
     bool isVar(string);
    
     void pushNewTypeEnv();
-    map<string, int> popTypeEnv();
-    void bindType(string name, int type);
-    int getTypeForVar(string name);
+    void pushNewVarBindingEnv();
+    map<string, Int32> popTypeEnv();
+    void popVarBindingEnv();
+    void bindType(string name, Int32 type);
+    void bindVar(string name, Object*);
+    Int32 getTypeForVar(string name);
     
     vector<Object*> getAST();
 };

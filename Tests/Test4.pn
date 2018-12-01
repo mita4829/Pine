@@ -1,3 +1,4 @@
+/* Logical test */
 func main() -> Int {
     let p:Bool = True;
     let q:Bool = False;

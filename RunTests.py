@@ -7,6 +7,10 @@ RED = "\033[00;31m"
 GREEN = "\033[00;32m"
 NORMAL = "\033[0m"
 
+print(GREEN+"Building Pine"+NORMAL)
+os.system("cd src/; make; cd ..")
+
+
 os.chdir("Tests")
 files = os.listdir(os.getcwd())
 for file in files:
@@ -21,6 +25,10 @@ for file in files:
     if(not same):
         print(RED + "Failed: "+ NORMAL + file)
         os.system("diff "+file+" ../Test_Expected/"+ans)
+        # Clean up files from tests
+        os.system("rm Pine.s")
+        os.system("rm log.txt");
+        os.system("rm output");
         exit()
 
 print(GREEN + "All tests passed!" + NORMAL)

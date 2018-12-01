@@ -2,48 +2,92 @@
 
 template <typename T, typename V>
 T absDiff(T x, V y) {
+    LOG("Parser:absDiff");
+    LOG("    x:"+to_string(x)+", y:"+to_string(y));
     T result = x - y;
     result = result < 0 ? -result : result;
+    LOG("Parser:-absDiff");
     return result;
 }
 
 Parser::Parser(){
-    map<string, int> m; typeEnv.push(m);
+    LOG("Parser:Parser");
+    map<string, Int32> m; typeEnv.push(m);
+    map<string, Object*> s; varBindings.push(s);
 }
-Parser::~Parser(){}
+
+Parser::~Parser(){
+    LOG("Parser:~Parser");
+    for(const auto& node : abstract_syntax_tree){
+        if(node != nullptr){
+            delete node;
+        }
+    }
+    
+    while(varBindings.size() != 0){
+        map<string, Object*> bind = varBindings.top();
+        for(const auto& mapping : bind){
+            if(mapping.second != nullptr){
+                delete mapping.second;
+            }
+        }
+        varBindings.pop();
+    }
+}
+
 Parser::Parser(vector<vector<string>> _lexems) : Parser() {
+    LOG("Parser:Parser");
+    LOG("    lexem: 0x"+AddressOf(&_lexems));
     lexems = _lexems;
     lineIndex = 0;
     if(lexems.size() > 0){
         line = lexems[0];
         curr = line[0];
     }
+    LOG("Parser:-Parser");
 }
+
 void Parser::next(){
+    LOG("Parser:next");
+    LOG("    curr: "+curr);
     if(lineIndex+1 < line.size()){
         lineIndex += 1;
         curr = line[lineIndex];
     }
 }
+
+string Parser::peek(){
+    LOG("Parser:peek");
+    if(lineIndex+1 < line.size()){
+        return line[lineIndex+1];
+    }
+    return "";
+}
+
 vector<Object*> Parser::getAST(){
+    LOG("Paser::getAST");
     return abstract_syntax_tree;
 }
 
 void Parser::parse(){
-    for(int i = 0; i<lexems.size(); i++){
-        line = lexems[i];
+    LOG("Parser:parse");
+    for(const auto& line : lexems){
         lineIndex = 0;
         curr = line[lineIndex];
         Object* tree = generic_parse();
         abstract_syntax_tree.push_back(tree);
     }
+    LOG("Parser:-parse");
 }
 
 Object* Parser::generic_parse(){
+    LOG("Parser:generic_parse");
     Object* result = nullptr;
-    string default_func[] = {"print"};
+    string default_func_tokens[] = {"print"};
+    set<string> default_func(begin(default_func_tokens),
+                             end(default_func_tokens));
     /*Default functions*/
-    if(in<string>(curr, default_func, sizeof(default_func)/sizeof(default_func[0]))){
+    if(default_func.find(curr) != default_func.end()){
         if(curr == "print"){
             next();
             return print_parse();
@@ -61,6 +105,10 @@ Object* Parser::generic_parse(){
         next();
         return for_parse();
     }
+    else if(curr == "while"){
+        next();
+        return while_parse();
+    }
     /*Atomic token*/
     else{
         Object* rtn = logical_or();
@@ -73,13 +121,16 @@ Object* Parser::generic_parse(){
 
 /* Print token [Stops on semi-colon] */
 Object* Parser::print_parse(){
+    LOG("Parser:print_parse");
     next(); /* ( */
     Object* val = generic_parse();
     next(); /* ; */
+    LOG("Parser::-print_parse");
     return new Print(val);
 }
 
 Object* Parser::let_parse(){
+    LOG("Parser:let_parse");
     string lval = curr;
     next(); // :
     int type = OBJECT;
@@ -88,13 +139,29 @@ Object* Parser::let_parse(){
         type = translateType(curr);
         next();
     }
-    bindType(lval, type);
     next(); // =
     Object* rval = generic_parse();
+    /*
+     Infer the type of if no type was given
+     */
+    if(type == OBJECT){
+        type = rval->getType();
+    }
+    /*
+     If rval isPrimative, add a binding for future
+     static analysis
+     */
+    if(isPrimative(type)){
+        bindVar(lval, rval);
+    }
+    bindType(lval, type);
+    
+    LOG("Parser::-let_parse");
     return new Let(lval, type, rval);
 }
 
 Object* Parser::if_parse(){
+    LOG("Parser:if_parse");
     next(); // (
     Object* condition = generic_parse();
     next(); // )
@@ -117,10 +184,16 @@ Object* Parser::if_parse(){
         }
         next();
     }
+    if(curr != ";"){
+        RaisePineException("If statement expected semi-colon at ending.");
+    }
+    LOG("Parser::-if_parse");
     return new If(condition, new Seq(body), new Seq(Else));
 }
 
 Object* Parser::for_parse(){
+    LOG("Parser:for_parse");
+    volatileVars += 1;
     next(); // (
     Object* decl = generic_parse();
     next(); // ;
@@ -136,10 +209,38 @@ Object* Parser::for_parse(){
         next();
     }
     next(); /* } */
+    volatileVars -= 1;
+    if(curr != ";"){
+        RaisePineException("For loop expected semi-colon at ending.");
+    }
+    LOG("Parser::-for_parse");
     return new For(decl, cond, incl, new Seq(body));
 }
 
+Object* Parser::while_parse(){
+    LOG("Parser::while_parse");
+    volatileVars += 1;
+    next(); // (
+    Object* cond = generic_parse();
+    next(); // )
+    next(); // {
+    vector<Object*> body;
+    while(curr != "}"){
+        Object* stmt = generic_parse();
+        body.push_back(stmt);
+        next();
+    }
+    next(); // }
+    volatileVars -= 1;
+    if(curr != ";"){
+         RaisePineException("While loop expected semi-colon at ending.");
+    }
+    LOG("Parser:-while_parse");
+    return new While(cond, new Seq(body));
+}
+
 Object* Parser::function_parse(){
+    LOG("Paser::function_parse");
     pushNewTypeEnv();
     string fname = curr;
     next(); /* ( */
@@ -149,7 +250,7 @@ Object* Parser::function_parse(){
     
     next(); /* ) */
     next(); /* -> */
-    int return_type = translateType(curr);
+    Int32 return_type = translateType(curr);
     bindType(fname, return_type);
     next(); /* { */
     next();
@@ -161,32 +262,46 @@ Object* Parser::function_parse(){
     }
     next(); /* } */
     popTypeEnv();
+    LOG("Parser::-function_parse");
     return new Function(fname, argv, new Seq(body), return_type);
 }
 
 Object* Parser::logical_or(){
+    LOG("Paser::logical_or");
     Object* result = logical_and();
     while(curr == "||"){
         next();
         result = new Logical(OR, result, logical_and());
     }
-    return result;
+    LOG("Parser::-logical_or");
+    /*
+     Preform static analysis on the result to see if
+     optimizations can be applied
+     */
+    return analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings,
+                                 result);
 }
 
 Object* Parser::logical_and(){
+    LOG("Paser::logical_and");
     Object* result = logical_parse();
     while(curr == "&&"){
         next();
         result = new Logical(AND, result, logical_parse());
     }
+    LOG("Parser::-logical_and");
     return result;
 }
 
 /* Numerical tokens for expression [Stops on semi-colon] */
 Object* Parser::logical_parse(){
+    LOG("Paser::logical_parse");
     Object* result = union_parse();
-    string logical_tokens[] = {"==", "!=", "=", "<=", ">=", "<", ">"};
-    while(in(curr, logical_tokens, sizeof(logical_tokens)/sizeof(logical_tokens[0]))){
+    string logical[] = {"==", "!=", "=", "<=", ">=", "<", ">"};
+    set<string> logical_tokens(begin(logical),
+                        end(logical));
+    
+    while(logical_tokens.find(curr) != logical_tokens.end()){
         if(curr == "=="){
             next();
             result = new Compare(EQU, result, union_parse());
@@ -210,13 +325,17 @@ Object* Parser::logical_parse(){
             result = new Compare(GT, result, union_parse());
         }
     }
+    LOG("Parser::-logical_parse");
     return result;
 }
 
 Object* Parser::union_parse(){
+    LOG("Paser::union_parse");
     Object* result = intersect_parse();
-    string union_tokens[] = {"+", "-"};
-    while(in(curr, union_tokens, sizeof(union_tokens)/sizeof(union_tokens[0]))){
+    string unions[] = {"+", "-"};
+    set<string> union_tokens(begin(unions),
+                             end(unions));
+    while(union_tokens.find(curr) != union_tokens.end()){
         if(curr == "+"){
             next();
             result = new Binary(ADD, result, intersect_parse());
@@ -225,13 +344,17 @@ Object* Parser::union_parse(){
             result = new Binary(SUB, result, intersect_parse());
         }
     }
+    LOG("Parser::-union_parse");
     return result;
 }
 
 Object* Parser::intersect_parse(){
+    LOG("Paser::intersect_parse");
     Object* result = nots_parse();
-    string intersect_tokens[] = {"*", "/", "%"};
-    while(in(curr, intersect_tokens, sizeof(intersect_tokens)/sizeof(intersect_tokens[0]))){
+    string intersect[] = {"*", "/", "%"};
+    set<string> intersect_tokens(begin(intersect),
+                                 end(intersect));
+    while(intersect_tokens.find(curr) != intersect_tokens.end()){
         if(curr == "*"){
             next();
             result = new Binary(MUL, result, nots_parse());
@@ -243,13 +366,18 @@ Object* Parser::intersect_parse(){
             result = new Binary(MOD, result, nots_parse());
         }
     }
+    LOG("Parser:-intersect_parse");
     return result;
 }
 
 Object* Parser::nots_parse(){
+    LOG("Paser::nots_parse");
     Object* result = atom_parse();
-    string nots_tokens[] = {"-", "!", "~"};
-    while(in(curr, nots_tokens, sizeof(nots_tokens)/sizeof(nots_tokens[0])) && result == nullptr){
+    string nots[] = {"-", "!", "~"};
+    set<string> nots_tokens(begin(nots),
+                            end(nots));
+    while((nots_tokens.find(curr) != nots_tokens.end()) &&
+           result == nullptr){
         if(curr == "-"){
             next();
             result = new Unary(atom_parse(), NEG);
@@ -261,14 +389,18 @@ Object* Parser::nots_parse(){
             result = new Unary(atom_parse(), IVT);
         }
     }
+    LOG("Parser:-nots_parse");
     return result;
 }
 
 Object* Parser::atom_parse(){
+    LOG("Paser::atom_parse");
     Object* result = nullptr;
-    string nots_tokens[] = {"-", "!", "~"};
+    string nots[] = {"-", "!", "~"};
+    set<string> nots_tokens(begin(nots),
+                            end(nots));
     /* Unary operation */
-    if(in(curr, nots_tokens, sizeof(nots_tokens)/sizeof(nots_tokens[0]))){
+    if(nots_tokens.find(curr) != nots_tokens.end()){
         return result;
     }
     /* Paren */
@@ -294,14 +426,21 @@ Object* Parser::atom_parse(){
     }
     /* String */
     else if(curr[0] == '"'){
-        result = new String(curr);
+        result = new class String(curr);
         next();
     }
-    
+    /* Uncaught ERROR */
+    else {
+        LOG("    Unknown_atomic: "+curr);
+        RaisePineWarning("Variable \""+curr+"\" was not defined.");
+    }
+    LOG("Parser:-atom_parse");
     return result;
 }
 
 Object* Parser::is_numeric(string val){
+    LOG("Parser::is_numeric");
+    LOG("    val: "+val);
     try {
         Object* num = nullptr;
         int i = stoi(val);
@@ -310,37 +449,40 @@ Object* Parser::is_numeric(string val){
         num = new Integer(i);
         if(f != i || ((val.find(".") != std::string::npos))){
             delete num;
-            num = new Float(f);
+            num = new class Float(f);
         }
         if(val.length() - val.rfind(".") > 6){
             delete num;
-            num = new Double(d);
+            num = new class Double(d);
         }
         return num;
     } catch (...) { /* Catch all exceptions for non-numeric value */
+        LOG("Parser:is_numericAssert");
         return nullptr;
     }
     return nullptr;
 }
 
 int Parser::translateType(string type){
+    LOG("Parser:translateType");
+    LOG("    type: "+type);
     if(type == "Int"){
-        return INTEGER;
+        return Int;
     }else if(type == "Float"){
-        return FLOAT;
+        return Float;
     }else if(type == "Double"){
-        return DOUBLE;
+        return Double;
     }else if(type == "String"){
-        return STRING;
+        return String;
     }else if(type == "Bool"){
-        return BOOLEAN;
+        return Bool;
     }
     RaisePineException("Missing or invalid type definition "+type);
     return 0;
 }
 
 bool Parser::isVar(string name){
-    map<string, int>* s = &(typeEnv.top());
+    map<string, Int32>* s = &(typeEnv.top());
     if(s->find(name) != s->end()){
         return true;
     }
@@ -348,25 +490,43 @@ bool Parser::isVar(string name){
 }
 
 void Parser::pushNewTypeEnv(){
-    map<string, int> m;
+    map<string, Int32> m;
     typeEnv.push(m);
 }
 
-map<string, int> Parser::popTypeEnv(){
-    map<string, int> last = (typeEnv.top());
+void Parser::pushNewVarBindingEnv(){
+    map<string, Object*> m;
+    varBindings.push(m);
+}
+
+map<string, Int32> Parser::popTypeEnv(){
+    map<string, Int32> last = (typeEnv.top());
     typeEnv.pop();
     return last;
 }
 
+void Parser::popVarBindingEnv(){
+    map<string, Object*>* last = &(varBindings.top());
+    for(const auto& binding : (*last)){
+        delete binding.second;
+    }
+    varBindings.pop();
+}
+
 void Parser::bindType(string name, int type){
-    map<string,int>* s = &(typeEnv.top());
+    map<string, Int32>* s = &(typeEnv.top());
     (*s)[name] = type;
 }
 
 int Parser::getTypeForVar(string name){
-    map<string, int>* last = &(typeEnv.top());
+    map<string, Int32>* last = &(typeEnv.top());
     if(last->find(name) == last->end()){
         RaisePineException("Undefined variable type: "+name);
     }
     return (*last)[name];
+}
+
+void Parser::bindVar(string name, Object* obj){
+    map<string, Object*>* last = &(varBindings.top());
+    (*last)[name] = obj;
 }

@@ -1,3 +1,4 @@
+/* Compare test */
 func main() -> Int {
     let one:Int = 1;
     let two:Int = 2;

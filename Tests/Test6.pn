@@ -1,0 +1,5 @@
+/* String test */
+func main() -> Int {
+    let e:String = "Hello";
+    print(e);
+};

@@ -1,91 +1,55 @@
 #include "Foundation.hpp"
-#include "Interpreter.hpp"
-#include "Lexer.hpp"
 #include "Parser.hpp"
+#include "Lexer.hpp"
 #include "Compiler.hpp"
-#include <fstream>
 
+#include <signal.h>
+#include <string.h>
 using namespace std;
 
-void print(vector<string> v){
-    cout << "[";
-    for(int i = 0; i<v.size(); i++){
-        cout << v[i] << ", ";
-    }
-    cout << "]" << endl;
+void segfault_sigaction(int signal, siginfo_t *si, void *arg){
+    LOG("Main:segfault_sigaction");
+    RaisePineException("Segmentation fault event.");
 }
-void print_v(vector<vector<string>> v){
-    cout << "[";
-    for(int i = 0; i<v.size(); i++){
-        cout << "[";
-        vector<string> w = v[i];
-        for(int i = 0; i<w.size(); i++){
-            cout << w[i] << ", ";
+
+Int32 main(Int32 argc, Char** argv){
+    try {
+        LOG("Main:Main");
+        struct sigaction sa;
+        string pineSourceFile;
+        Lexer lexer;
+        
+        memset(&sa, 0, sizeof(struct sigaction));
+        sigemptyset(&sa.sa_mask);
+        sa.sa_sigaction = segfault_sigaction;
+        sa.sa_flags = SA_SIGINFO;
+        sigaction(SIGSEGV, &sa, NULL);
+        
+        if(argc < 2){
+            RaisePineException("Expected Pine file.");
         }
-        cout << "], ";
-    }
-    cout << "]" << endl;
-}
+        
+        pineSourceFile = argv[1];
+        lexer.lex(pineSourceFile);
 
-void printAST(vector<Object*> ast){
-    for(int i = 0; i<ast.size(); i++){
-        ast[i]->print();
-    }
-    cout << endl;
-}
-
-int main(int argc, char** argv){
-    if(argc < 2){
-        RaisePineException("Expected a Pine source file.");
-    }
-    string filename = argv[1];
-    std::ifstream ifs(filename);
-    std::string sourceCode( (std::istreambuf_iterator<char>(ifs) ),
-                        (std::istreambuf_iterator<char>()    ) );
-    ifs.close();
-   
-    
-    
-    
-    //DEBUG("Source:");
-    //cout << sourceCode;
-    Lexer::lex(sourceCode);
-    //DEBUG("Lexems:");
-    //print_v(Lexer::lexem);
-    Parser p = Parser(Lexer::lexem);
-    p.parse();
-    vector<Object*> ast = p.getAST();
-    //DEBUG("AST:");
-    //printAST(ast);
-    //DEBUG("Flatten:");
-    Compiler c = Compiler(ast);
-    for(Object* tree : ast){
-        c.flatten(tree);
-    }
-    vector<Object*> flat_ast = c.popFlatStack();
-//    for(Object* tree : flat_ast){
-//        tree->print();
-//        cout << endl;
-//    }
-//    DEBUG("Compile:");
-    for(Object* tree : flat_ast){
-        c.compile(tree);
-    }
-    vector<string> assmcode = c.getAssembly();
-    string output = "";
-    for(string s : assmcode){
-        char first = s[0];
-        string tab = "\t";
-        if(first != '.' && !(first >= 'A' && first <= 'Z')){
-            s = tab + s;
+        Parser p = Parser(Lexer::lexem);
+        p.parse();
+        
+        vector<Object*> ast = p.getAST();
+        
+        Compiler c     = Compiler(ast);
+        c.generateBinary();
+                
+        /* Dump log if debug flag is given */
+        if(argc >= 3 && string(argv[argc-1]) == "-d"){
+            RaisePineWarning("Breaking on runtime for debug mode.");
+            throw 0;
         }
-        output += (s + "\n");
+    } catch (...) {
+        /* Log failure in the event of a main error */
+        LOG("Main:Main");
+        RaisePineException("Event in Main failed.");
     }
-    ofstream asmFile;
-    asmFile.open("Pine.s");
-    asmFile << output;
-    asmFile.close();
-    system("gcc -std=c11 -o a.out Pine.s PineRuntime.s");
+    return 0;
 }
-
 
