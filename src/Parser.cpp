@@ -76,7 +76,6 @@ void Parser::parse(){
         curr = _line[lineIndex];
         line = _line;
         Object* tree = generic_parse();
-        tree->print();
         abstract_syntax_tree.push_back(tree);
     }
     LOG("Parser:-parse");

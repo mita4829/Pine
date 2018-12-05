@@ -35,11 +35,18 @@ Int32 main(Int32 argc, Char** argv){
         Parser p = Parser(Lexer::lexem);
         p.parse();
         
+        /* ast must be freed by whoever last holds it */
         vector<Object*> ast = p.getAST();
         
         Compiler c     = Compiler(ast);
         c.generateBinary();
-                
+        
+        /* Free ast */
+        for(auto& tree : ast){
+            delete tree;
+            tree = nullptr;
+        }
+            
         /* Dump log if debug flag is given */
         if(argc >= 3 && string(argv[argc-1]) == "-d"){
             RaisePineWarning("Breaking on runtime for debug mode.");
