@@ -71,10 +71,12 @@ vector<Object*> Parser::getAST(){
 
 void Parser::parse(){
     LOG("Parser:parse");
-    for(const auto& line : lexems){
+    for(const auto& _line : lexems){
         lineIndex = 0;
-        curr = line[lineIndex];
+        curr = _line[lineIndex];
+        line = _line;
         Object* tree = generic_parse();
+        tree->print();
         abstract_syntax_tree.push_back(tree);
     }
     LOG("Parser:-parse");

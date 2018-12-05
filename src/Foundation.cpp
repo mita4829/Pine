@@ -49,6 +49,10 @@ void Object::print(){
     cout<<"Obj()"<<endl;
 }
 
+Object* Object::clone(){
+    return nullptr;
+}
+
 Number::Number(){
     LOG("Foundation:Number");
     Type = NUMBER;
@@ -56,6 +60,10 @@ Number::Number(){
 Number::~Number(){LOG("Foundation:~Number");}
 void Number::print(){
     cout<<"N()";
+}
+
+Object* Number::clone(){
+    return nullptr;
 }
 
 Boolean::Boolean(){
@@ -76,6 +84,11 @@ void Boolean::print(){
     cout<<"Bool("<<val<<")";
 }
 
+Object* Boolean::clone(){
+    Boolean* copy = new Boolean(val);
+    return copy;
+}
+
 Integer::Integer(){
     LOG("Foundation:Integer");
     Type = INTEGER;
@@ -94,6 +107,11 @@ void Integer::print(){
     cout<<"Int("<<val<<")";
 }
 
+Object* Integer::clone(){
+    Integer* copy = new Integer(val);
+    return copy;
+}
+
 Float::Float(){
     Type = FLOAT;
 }
@@ -107,6 +125,11 @@ float Float::getVal(){
 }
 void Float::print(){
     cout<<"Float("<<val<<")";
+}
+
+Object* Float::clone(){
+    Float* copy = new Float(val);
+    return copy;
 }
 
 Double::Double(){
@@ -124,6 +147,11 @@ void Double::print(){
     cout<<"Double("<<val<<")";
 }
 
+Object* Double::clone(){
+    Double* copy = new Double(val);
+    return copy;
+}
+
 String::String(){
     Type = STRING;
 }
@@ -137,6 +165,11 @@ string String::getVal(){
 }
 void String::print(){
     cout<<"S(\"" <<val<< "\")";
+}
+
+Object* String::clone(){
+    String* copy = new String(val);
+    return copy;
 }
 
 Let::Let(){
@@ -173,6 +206,11 @@ void Let::print(){
     cout << "Let(\"" << lval <<"\","<<expectedType<<",";
     rval->print();
     cout << ")";
+}
+
+Object* Let::clone(){
+    Let* copy = new Let(lval, expectedType, rval->clone());
+    return copy;
 }
 
 Binary::Binary(){
@@ -238,6 +276,11 @@ void Binary::print(){
     cout << ",";
     right->print();
     cout << ")";
+}
+
+Object* Binary::clone(){
+    Binary* copy = new Binary(operation, left->clone(), right->clone());
+    return copy;
 }
 
 Compare::Compare(){
@@ -309,6 +352,11 @@ void Compare::print(){
     cout << ")";
 }
 
+Object* Compare::clone(){
+    Compare* copy = new Compare(operation, left->clone(), right->clone());
+    return copy;
+}
+
 Var::Var(){
     Type = VAR;
 }
@@ -331,6 +379,11 @@ Int32 Var::getType(){
 
 void Var::print(){
     cout << "Var(\"" << name << "\", " << type << ")";
+}
+
+Object* Var::clone(){
+    Var* copy = new Var(name, type);
+    return copy;
 }
 
 Print::Print(){
@@ -358,6 +411,11 @@ void Print::print(){
     cout << "Print(";
     val->print();
     cout << ")";
+}
+
+Object* Print::clone(){
+    Print* copy = new Print(val->clone());
+    return copy;
 }
 
 Function::Function(){
@@ -404,6 +462,23 @@ void Function::print(){
     cout << ", " + to_string(return_type) + ")";
 }
 
+Object* Function::clone(){
+    Function* copy;
+    
+    vector<Object*> argvCopy;
+    for(const auto& arg : argv){
+        Object* argCopy = arg->clone();
+        argvCopy.push_back(argCopy);
+    }
+    
+    copy = new Function(name,
+                        argvCopy,
+                        Safe_Cast<Seq*>(body->clone()),
+                        return_type);
+    
+    return copy;
+}
+
 Unary::Unary(){
     Type = UNARY;
     val = nullptr;
@@ -430,6 +505,12 @@ void Unary::print(){
     cout << "Unary(";
     val->print();
     cout << ", " << operation << ")";
+}
+
+Object* Unary::clone(){
+    Unary* copy = new Unary(val->clone(),
+                            operation);
+    return copy;
 }
 
 Seq::Seq(){
@@ -460,6 +541,19 @@ void Seq::print(){
         cout << ", ";
     }
     cout << ")";
+}
+
+Object* Seq::clone(){
+    Seq* copy;
+    vector<Object*> stmtCopy;
+    for(const auto& statement : stmt){
+        Object* statementCopy = statement->clone();
+        stmtCopy.push_back(statementCopy);
+    }
+    
+    copy = new Seq(stmtCopy);
+    
+    return copy;
 }
 
 If::If(){
@@ -514,6 +608,13 @@ void If::print(){
     cout << ")";
 }
 
+Object* If::clone(){
+    If* copy = new If(condition->clone(),
+                      Safe_Cast<Seq*>(body->clone()),
+                      Safe_Cast<Seq*>(Else->clone()));
+    return copy;
+}
+
 Logical::Logical(){
     Type = LOGICAL;
     left = nullptr;
@@ -559,6 +660,13 @@ void Logical::print(){
     cout << ")";
 }
 
+Object* Logical::clone(){
+    Logical* copy = new Logical(operation,
+                                left->clone(),
+                                right->clone());
+    return copy;
+}
+
 Assign::Assign(){
     Type = ASSIGN;
     name = nullptr;
@@ -602,6 +710,11 @@ void Assign::print(){
     cout << ", ";
     val->print();
     cout << ")";
+}
+
+Object* Assign::clone(){
+    Assign* copy = new Assign(name, val->clone());
+    return copy;
 }
 
 For::For(){
@@ -666,6 +779,14 @@ void For::print(){
     cout << ")";
 }
 
+Object* For::clone(){
+    For* copy = new For(declare->clone(),
+                        condition->clone(),
+                        incrementor->clone(),
+                        Safe_Cast<Seq*>(body->clone()));
+    return copy;
+}
+
 While::While(){
     Type = WHILE;
     condition = nullptr;
@@ -704,4 +825,10 @@ void While::print(){
     cout << ", ";
     body->print();
     cout << ")";
+}
+
+Object* While::clone(){
+    While* copy = new While(condition->clone(),
+                            Safe_Cast<Seq*>(body->clone()));
+    return copy;
 }

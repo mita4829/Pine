@@ -105,9 +105,10 @@ protected:
     Int32  Type = OBJECT;
 public:
     Object();
-    ~Object();
+    virtual ~Object();
     Int32  getType();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Number : public Object {
@@ -115,6 +116,7 @@ public:
     Number();
     ~Number();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Boolean : public Object {
@@ -126,6 +128,7 @@ public:
     ~Boolean();
     bool getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Integer : public Number {
@@ -137,6 +140,7 @@ public:
     ~Integer();
     Int32  getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Float : public Number {
@@ -148,6 +152,7 @@ public:
     ~Float();
     float getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Double : public Number {
@@ -159,6 +164,7 @@ public:
     ~Double();
     double getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class String : public Object {
@@ -170,6 +176,7 @@ public:
     ~String();
     string getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Let : public Object {
@@ -185,6 +192,7 @@ public:
     Int32  getExpectedType();
     string getName();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Binary : public Object {
@@ -200,6 +208,7 @@ public:
     Object* getRight();
     Int32  getOperation();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Compare : public Object {
@@ -215,6 +224,7 @@ public:
     Object* getRight();
     Int32  getOperation();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Var : public Object {
@@ -228,6 +238,7 @@ public:
     string getName();
     Int32  getType();
     virtual void print();
+    virtual Object* clone();
 };
 
 
@@ -240,6 +251,7 @@ public:
     ~Print();
     Object* getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Seq : public Object {
@@ -251,6 +263,7 @@ public:
     Seq(vector<Object*>);
     vector<Object*> getStatements();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Function : public Object {
@@ -268,6 +281,7 @@ public:
     Seq* getBody();
     Int32  getReturnType();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Unary : public Object {
@@ -281,6 +295,7 @@ public:
     Object* getVal();
     Int32  getOperation();
     virtual void print();
+    virtual Object* clone();
 };
 
 class If : public Object {
@@ -296,6 +311,7 @@ public:
     Seq* getBody();
     Seq* getElse();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Logical : public Object {
@@ -311,6 +327,7 @@ public:
     Object* getLeft();
     Object* getRight();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Assign : public Object {
@@ -325,6 +342,7 @@ public:
     Object* getVal();
     void replaceVal(Object*);
     virtual void print();
+    virtual Object* clone();
 };
 
 class For : public Object {
@@ -342,6 +360,7 @@ public:
     Object* getIncl();
     Seq* getBody();
     virtual void print();
+    virtual Object* clone();
 };
 
 class While : public Object {
@@ -355,6 +374,7 @@ public:
     Object* getCondition();
     Seq* getBody();
     virtual void print();
+    virtual Object* clone();
 };
 
 template <typename T>

@@ -113,9 +113,15 @@ Object* Compiler::flatten(Object* expr){
     Int32 Type = expr->getType();
     LOG("    Type: "+STR(Type));
     /* Primatives */
+    /*
+     We cannot just return the primative expr/node, as the original
+     AST holds a reference to these nodes. Otherwise, freeing
+     the memory of the original AST and the flatAST will cause
+     a double free assert.
+     */
     if(Type == VAR || Type == INTEGER || Type == FLOAT ||
        Type == DOUBLE || Type == STRING || Type == BOOLEAN){
-        return expr;
+        return expr->clone();
     }
     /* Unary */
     else if(Type == UNARY){
