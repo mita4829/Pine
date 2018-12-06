@@ -100,6 +100,7 @@ Compiler::~Compiler(){
         for(auto& stmt : frame){
             if(stmt != nullptr){
                 delete stmt;
+                stmt = nullptr;
             }
         }
         flattenStmt.pop();

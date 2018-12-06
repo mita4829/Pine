@@ -18,12 +18,15 @@ Parser::Parser(){
 
 Parser::~Parser(){
     LOG("Parser:~Parser");
-    for(const auto& node : abstract_syntax_tree){
+    LOG("Parser:    deleting ast");
+    for(auto& node : abstract_syntax_tree){
         if(node != nullptr){
             delete node;
+            node = nullptr;
         }
     }
-    
+
+    LOG("Parser:    deleting varBindings");
     while(varBindings.size() != 0){
         map<string, Object*> bind = varBindings.top();
         for(const auto& mapping : bind){
@@ -33,6 +36,7 @@ Parser::~Parser(){
         }
         varBindings.pop();
     }
+    LOG("Parser:-~Parser");
 }
 
 Parser::Parser(vector<vector<string>> _lexems) : Parser() {
@@ -279,8 +283,8 @@ Object* Parser::logical_or(){
      Preform static analysis on the result to see if
      optimizations can be applied
      */
-    return analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings,
-                                 result);
+    return result;//analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings,
+                                 //result);
 }
 
 Object* Parser::logical_and(){
@@ -529,5 +533,5 @@ int Parser::getTypeForVar(string name){
 
 void Parser::bindVar(string name, Object* obj){
     map<string, Object*>* last = &(varBindings.top());
-    (*last)[name] = obj;
+    (*last)[name] = obj->clone();
 }
