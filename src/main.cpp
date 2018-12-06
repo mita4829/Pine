@@ -29,16 +29,22 @@ Int32 main(Int32 argc, Char** argv){
             RaisePineException("Expected Pine file.");
         }
         
+        /* Lexer */
         pineSourceFile = argv[1];
         lexer.lex(pineSourceFile);
-
+        
+        /* Parser */
         Parser p = Parser(Lexer::lexem);
         p.parse();
         
-        /* Note: AST will be freed once p leaves the scope */
         vector<Object*> ast = p.getAST();
         
-        Compiler c     = Compiler(ast);
+        /* Compiler */
+        vector<Object*> astCopy;
+        for(auto& tree : ast){
+            astCopy.push_back(tree->clone());
+        }
+        Compiler c = Compiler(astCopy);
         c.generateBinary();
         
         /* Dump log if debug flag is given */

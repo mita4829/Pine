@@ -105,6 +105,13 @@ Compiler::~Compiler(){
         }
         flattenStmt.pop();
     }
+    
+    for(auto& tree : ast){
+        if(tree != nullptr){
+            delete tree;
+            tree = nullptr;
+        }
+    }
 }
 
 Object* Compiler::flatten(Object* expr){
@@ -199,7 +206,7 @@ Object* Compiler::flatten(Object* expr){
         pushNewFlatStack();
         vector<Object*> body_stmt = s->getStatements();
         for(const auto& stmt : body_stmt){
-            flatten(stmt);
+            flatten(stmt->clone());
         }
         vector<Object*> flatBody  = popFlatStack();
         return new Seq(flatBody);
