@@ -1,6 +1,7 @@
 #include "Foundation.hpp"
 
 vector<string> Trace;
+map<Int32, Object*> memoryPool;
 
 void DEBUG(string message){
     LOG("Foundation:DEBUG");
@@ -40,13 +41,29 @@ bool isPrimative(Int32 Type){
             Type == BOOLEAN);
 }
 
-Object::Object(){LOG("Foundation:Object");}
+Object::Object(){
+    static UInt32 memoryPoolID = 0;
+    LOG("Foundation:Object");
+    LOG("    memoryPoolID: "+STR(memoryPoolID));
+    
+    poolID = memoryPoolID;
+    memoryPool[memoryPoolID] = this;
+    
+    memoryPoolID += 1;
+}
 Object::~Object(){LOG("Foundation:~Object");}
 Int32 Object::getType(){
     return Type;
 }
+UInt32 Object::getMemoryPoolID(){
+    return poolID;
+}
 void Object::print(){
     cout<<"Obj()"<<endl;
+}
+
+Object* Object::clone(){
+    return nullptr;
 }
 
 Number::Number(){
@@ -56,6 +73,10 @@ Number::Number(){
 Number::~Number(){LOG("Foundation:~Number");}
 void Number::print(){
     cout<<"N()";
+}
+
+Object* Number::clone(){
+    return nullptr;
 }
 
 Boolean::Boolean(){
@@ -76,6 +97,11 @@ void Boolean::print(){
     cout<<"Bool("<<val<<")";
 }
 
+Object* Boolean::clone(){
+    Boolean* copy = new Boolean(val);
+    return copy;
+}
+
 Integer::Integer(){
     LOG("Foundation:Integer");
     Type = INTEGER;
@@ -94,6 +120,11 @@ void Integer::print(){
     cout<<"Int("<<val<<")";
 }
 
+Object* Integer::clone(){
+    Integer* copy = new Integer(val);
+    return copy;
+}
+
 Float::Float(){
     Type = FLOAT;
 }
@@ -107,6 +138,11 @@ float Float::getVal(){
 }
 void Float::print(){
     cout<<"Float("<<val<<")";
+}
+
+Object* Float::clone(){
+    Float* copy = new Float(val);
+    return copy;
 }
 
 Double::Double(){
@@ -124,6 +160,11 @@ void Double::print(){
     cout<<"Double("<<val<<")";
 }
 
+Object* Double::clone(){
+    Double* copy = new Double(val);
+    return copy;
+}
+
 String::String(){
     Type = STRING;
 }
@@ -131,12 +172,17 @@ String::String(string _val){
     Type = STRING;
     val = _val;
 }
-String::~String(){}
+String::~String(){LOG("Foundation:~String");}
 string String::getVal(){
     return val;
 }
 void String::print(){
-    cout<<"S(\"" <<val<< "\")";
+    cout<<"String(" <<val<< ")";
+}
+
+Object* String::clone(){
+    String* copy = new String(val);
+    return copy;
 }
 
 Let::Let(){
@@ -152,7 +198,7 @@ Let::Let(string _lval, Int32 _expectedType, Object* _rval){
 
 Let::~Let(){
     if(rval != nullptr){
-        delete rval;
+        deleteObject(rval);
         rval = nullptr;
     }
 }
@@ -175,6 +221,11 @@ void Let::print(){
     cout << ")";
 }
 
+Object* Let::clone(){
+    Let* copy = new Let(lval, expectedType, rval->clone());
+    return copy;
+}
+
 Binary::Binary(){
     Type = BINARY;
 }
@@ -189,11 +240,11 @@ Binary::Binary(Int32 _operation, Object* l, Object* r){
 Binary::~Binary(){
     LOG("Foundation:~Binary");
     if(left != nullptr){
-        delete left;
+        deleteObject(left);
         left = nullptr;
     }
     if(right != nullptr){
-        delete right;
+        deleteObject(right);
         right = nullptr;
     }
 }
@@ -204,6 +255,14 @@ Object* Binary::getLeft(){
 
 Object* Binary::getRight(){
     return right;
+}
+
+void Binary::setLeft(Object* val){
+    left = val;
+}
+
+void Binary::setRight(Object* val){
+    right = val;
 }
 
 Int32 Binary::getOperation(){
@@ -240,6 +299,11 @@ void Binary::print(){
     cout << ")";
 }
 
+Object* Binary::clone(){
+    Binary* copy = new Binary(operation, left->clone(), right->clone());
+    return copy;
+}
+
 Compare::Compare(){
     Type = COMPARE;
     left = nullptr;
@@ -255,11 +319,11 @@ Compare::Compare(Int32 _operation, Object* l, Object* r){
 
 Compare::~Compare(){
     if(left != nullptr){
-        delete left;
+        deleteObject(left);
         left = nullptr;
     }
     if(right != nullptr){
-        delete right;
+        deleteObject(right);
         right = nullptr;
     }
 }
@@ -270,6 +334,14 @@ Object* Compare::getLeft(){
 
 Object* Compare::getRight(){
     return right;
+}
+
+void Compare::setLeft(Object* val){
+    left = val;
+}
+
+void Compare::setRight(Object* val){
+    right = val;
 }
 
 Int32 Compare::getOperation(){
@@ -309,6 +381,11 @@ void Compare::print(){
     cout << ")";
 }
 
+Object* Compare::clone(){
+    Compare* copy = new Compare(operation, left->clone(), right->clone());
+    return copy;
+}
+
 Var::Var(){
     Type = VAR;
 }
@@ -333,6 +410,11 @@ void Var::print(){
     cout << "Var(\"" << name << "\", " << type << ")";
 }
 
+Object* Var::clone(){
+    Var* copy = new Var(name, type);
+    return copy;
+}
+
 Print::Print(){
     Type = PRINT;
     val = nullptr;
@@ -344,8 +426,9 @@ Print::Print(Object* _val){
 }
 
 Print::~Print(){
+    LOG("Foundation:~Print");
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
         val = nullptr;
     }
 }
@@ -360,20 +443,26 @@ void Print::print(){
     cout << ")";
 }
 
+Object* Print::clone(){
+    Print* copy = new Print(val->clone());
+    return copy;
+}
+
 Function::Function(){
     Type = FUNCTION;
     body = nullptr;
 }
 
 Function::~Function(){
+    LOG("Foundation:~Function");
     for(const auto &elem : argv){
         if(elem != nullptr){
-            delete elem;
+            deleteObject(elem);
         }
     }
     argv.clear();
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
         body = nullptr;
     }
 }
@@ -404,6 +493,23 @@ void Function::print(){
     cout << ", " + to_string(return_type) + ")";
 }
 
+Object* Function::clone(){
+    Function* copy;
+    
+    vector<Object*> argvCopy;
+    for(const auto& arg : argv){
+        Object* argCopy = arg->clone();
+        argvCopy.push_back(argCopy);
+    }
+    
+    copy = new Function(name,
+                        argvCopy,
+                        Safe_Cast<Seq*>(body->clone()),
+                        return_type);
+    
+    return copy;
+}
+
 Unary::Unary(){
     Type = UNARY;
     val = nullptr;
@@ -411,7 +517,7 @@ Unary::Unary(){
 
 Unary::~Unary(){
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
         val = nullptr;
     }
 }
@@ -432,6 +538,12 @@ void Unary::print(){
     cout << ", " << operation << ")";
 }
 
+Object* Unary::clone(){
+    Unary* copy = new Unary(val->clone(),
+                            operation);
+    return copy;
+}
+
 Seq::Seq(){
     Type = SEQ;
 }
@@ -439,7 +551,7 @@ Seq::Seq(){
 Seq::~Seq(){
     for(const auto &elem : stmt){
         if(elem != nullptr){
-            delete elem;
+            deleteObject(elem);
         }
     }
 }
@@ -462,6 +574,19 @@ void Seq::print(){
     cout << ")";
 }
 
+Object* Seq::clone(){
+    Seq* copy;
+    vector<Object*> stmtCopy;
+    for(const auto& statement : stmt){
+        Object* statementCopy = statement->clone();
+        stmtCopy.push_back(statementCopy);
+    }
+    
+    copy = new Seq(stmtCopy);
+    
+    return copy;
+}
+
 If::If(){
     Type        = IF;
     condition   = nullptr;
@@ -471,15 +596,15 @@ If::If(){
 
 If::~If(){
     if(condition != nullptr){
-        delete condition;
+        deleteObject(condition);
         condition = nullptr;
     }
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
         body = nullptr;
     }
     if(Else != nullptr){
-        delete Else;
+        deleteObject(Else);
         Else = nullptr;
     }
 }
@@ -514,6 +639,13 @@ void If::print(){
     cout << ")";
 }
 
+Object* If::clone(){
+    If* copy = new If(condition->clone(),
+                      Safe_Cast<Seq*>(body->clone()),
+                      Safe_Cast<Seq*>(Else->clone()));
+    return copy;
+}
+
 Logical::Logical(){
     Type = LOGICAL;
     left = nullptr;
@@ -522,11 +654,11 @@ Logical::Logical(){
 
 Logical::~Logical(){
     if(left != nullptr){
-        delete left;
+        deleteObject(left);
         left = nullptr;
     }
     if(right != nullptr){
-        delete right;
+        deleteObject(right);
         right = nullptr;
     }
 }
@@ -549,6 +681,14 @@ Object* Logical::getRight(){
     return right;
 }
 
+void Logical::setLeft(Object* val){
+    left = val;
+}
+
+void Logical::setRight(Object* val){
+    right = val;
+}
+
 void Logical::print(){
     cout << "Logical(";
     cout << operation;
@@ -559,6 +699,13 @@ void Logical::print(){
     cout << ")";
 }
 
+Object* Logical::clone(){
+    Logical* copy = new Logical(operation,
+                                left->clone(),
+                                right->clone());
+    return copy;
+}
+
 Assign::Assign(){
     Type = ASSIGN;
     name = nullptr;
@@ -567,11 +714,11 @@ Assign::Assign(){
 
 Assign::~Assign(){
     if(name != nullptr){
-        delete name;
+        deleteObject(name);
         name = nullptr;
     }
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
         val = nullptr;
     }
 }
@@ -591,7 +738,7 @@ Object* Assign::getVal(){
 
 void Assign::replaceVal(Object* nval){
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
     }
     val = nval;
 }
@@ -604,6 +751,11 @@ void Assign::print(){
     cout << ")";
 }
 
+Object* Assign::clone(){
+    Assign* copy = new Assign(name->clone(), val->clone());
+    return copy;
+}
+
 For::For(){
     Type = FOR;
     declare = nullptr;
@@ -614,19 +766,19 @@ For::For(){
 
 For::~For(){
     if(declare != nullptr){
-        delete declare;
+        deleteObject(declare);
         declare = nullptr;
     }
     if(condition != nullptr){
-        delete condition;
+        deleteObject(condition);
         condition = nullptr;
     }
     if(incrementor != nullptr){
-        delete incrementor;
+        deleteObject(incrementor);
         incrementor = nullptr;
     }
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
         body = nullptr;
     }
 }
@@ -666,6 +818,14 @@ void For::print(){
     cout << ")";
 }
 
+Object* For::clone(){
+    For* copy = new For(declare->clone(),
+                        condition->clone(),
+                        incrementor->clone(),
+                        Safe_Cast<Seq*>(body->clone()));
+    return copy;
+}
+
 While::While(){
     Type = WHILE;
     condition = nullptr;
@@ -682,11 +842,11 @@ While::While(Object* _condition, Seq* _body) : While() {
 
 While::~While(){
     if(condition != nullptr){
-        delete condition;
+        deleteObject(condition);
     }
     
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
     }
 }
 
@@ -705,3 +865,50 @@ void While::print(){
     body->print();
     cout << ")";
 }
+
+Object* While::clone(){
+    While* copy = new While(condition->clone(),
+                            Safe_Cast<Seq*>(body->clone()));
+    return copy;
+}
+
+
+string getTypeName(Int32 type){
+    string translation[] = {
+        "OBJECT",
+        "VAR",
+        "NUMBER",
+        "BOOLEAN",
+        "INTEGER",
+        "FLOAT",
+        "DOUBLE",
+        "STRING",
+        "VOID",
+        "LET",
+        "BINARY",
+        "COMPARE",
+        "PRINT",
+        "FUNCTION",
+        "UNARY",
+        "SEQ",
+        "IF",
+        "LOGICAL",
+        "ASSIGN",
+        "FOR",
+        "WHILE",
+        "STACKLOC",
+        "REG",
+    };
+    
+    return translation[type];
+}
+
+void deleteObject(Object* o){
+    UInt32 memoryPoolID = o->getMemoryPoolID();
+    if(memoryPool[memoryPoolID] != nullptr){
+        delete memoryPool[memoryPoolID];
+        memoryPool[memoryPoolID] = nullptr;
+    }
+}
+
+

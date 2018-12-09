@@ -12,7 +12,22 @@
 #include <sstream>
 using namespace std;
 
+/*
+ Global types for constant width for cross-platform compilation
+ */
+typedef int8_t      Int8;
+typedef int16_t     Int16;
+typedef int32_t     Int32;
+typedef int64_t     Int64;
+typedef uint8_t     UInt8;
+typedef uint16_t    UInt16;
+typedef uint32_t    UInt32;
+typedef uint32_t    UInt;
+typedef uint64_t    UInt64;
+typedef char        Char;
+
 extern vector<string> Trace;
+
 #define LOG(str) Trace.push_back(str)
 #define Printf(str) cout << str << endl
 #define tuple(T,V) make_tuple(T, V)
@@ -24,20 +39,6 @@ extern vector<string> Trace;
 #define RED     "\e[1;31m"
 #define YELLOW  "\e[1;33m"
 #define WHITE   "\e[0m"
-
-/*
-    Global types for constant width for cross-platform compilation
-*/
-typedef int8_t      Int8;
-typedef int16_t     Int16;
-typedef int32_t     Int32;
-typedef int64_t     Int64;
-typedef uint8_t     UInt8;
-typedef uint16_t    UInt16;
-typedef uint32_t    UInt32;
-typedef uint32_t    UInt;
-typedef uint64_t    UInt64;
-typedef char        Char;
 
 enum Expr {
     OBJECT,
@@ -103,18 +104,24 @@ bool isPrimative(Int32 Type);
 class Object {
 protected:
     Int32  Type = OBJECT;
+    UInt32 poolID;
 public:
     Object();
-    ~Object();
+    virtual ~Object();
     Int32  getType();
+    UInt32 getMemoryPoolID();
     virtual void print();
+    virtual Object* clone();
 };
+
+extern map<Int32, Object*> memoryPool;
 
 class Number : public Object {
 public:
     Number();
     ~Number();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Boolean : public Object {
@@ -126,6 +133,7 @@ public:
     ~Boolean();
     bool getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Integer : public Number {
@@ -137,6 +145,7 @@ public:
     ~Integer();
     Int32  getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Float : public Number {
@@ -148,6 +157,7 @@ public:
     ~Float();
     float getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Double : public Number {
@@ -159,6 +169,7 @@ public:
     ~Double();
     double getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class String : public Object {
@@ -170,6 +181,7 @@ public:
     ~String();
     string getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Let : public Object {
@@ -185,6 +197,7 @@ public:
     Int32  getExpectedType();
     string getName();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Binary : public Object {
@@ -198,8 +211,11 @@ public:
     ~Binary();
     Object* getLeft();
     Object* getRight();
+    void setLeft(Object*);
+    void setRight(Object*);
     Int32  getOperation();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Compare : public Object {
@@ -213,8 +229,11 @@ public:
     ~Compare();
     Object* getLeft();
     Object* getRight();
+    void setLeft(Object*);
+    void setRight(Object*);
     Int32  getOperation();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Var : public Object {
@@ -228,6 +247,7 @@ public:
     string getName();
     Int32  getType();
     virtual void print();
+    virtual Object* clone();
 };
 
 
@@ -240,6 +260,7 @@ public:
     ~Print();
     Object* getVal();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Seq : public Object {
@@ -251,6 +272,7 @@ public:
     Seq(vector<Object*>);
     vector<Object*> getStatements();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Function : public Object {
@@ -268,6 +290,7 @@ public:
     Seq* getBody();
     Int32  getReturnType();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Unary : public Object {
@@ -281,6 +304,7 @@ public:
     Object* getVal();
     Int32  getOperation();
     virtual void print();
+    virtual Object* clone();
 };
 
 class If : public Object {
@@ -296,6 +320,7 @@ public:
     Seq* getBody();
     Seq* getElse();
     virtual void print();
+    virtual Object* clone();
 };
 
 class Logical : public Object {
@@ -310,7 +335,10 @@ public:
     Int32  getOperation();
     Object* getLeft();
     Object* getRight();
+    void setLeft(Object*);
+    void setRight(Object*);
     virtual void print();
+    virtual Object* clone();
 };
 
 class Assign : public Object {
@@ -325,6 +353,7 @@ public:
     Object* getVal();
     void replaceVal(Object*);
     virtual void print();
+    virtual Object* clone();
 };
 
 class For : public Object {
@@ -342,6 +371,7 @@ public:
     Object* getIncl();
     Seq* getBody();
     virtual void print();
+    virtual Object* clone();
 };
 
 class While : public Object {
@@ -355,6 +385,7 @@ public:
     Object* getCondition();
     Seq* getBody();
     virtual void print();
+    virtual Object* clone();
 };
 
 template <typename T>
@@ -362,4 +393,6 @@ T Safe_Cast(Object* obj) {
     return (T)obj;
 }
 
+string getTypeName(Int32 type);
+void deleteObject(Object* ptr);
 #endif

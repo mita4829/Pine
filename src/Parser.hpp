@@ -39,6 +39,7 @@ public:
     Object* for_parse();
     Object* while_parse();
     Object* function_parse();
+    Object* static_analysis();
     Object* logical_or();
     Object* logical_and();
     Object* logical_parse();

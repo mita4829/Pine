@@ -8,6 +8,7 @@
 class Compiler {
 private:
     vector<Object*> ast;
+    vector<Object*> flatAst;
     
     stack<vector<Object*>> flattenStmt;
     stack<vector<string>> compileStmt;

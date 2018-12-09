@@ -18,21 +18,19 @@ Parser::Parser(){
 
 Parser::~Parser(){
     LOG("Parser:~Parser");
-    for(const auto& node : abstract_syntax_tree){
+    LOG("Parser:    deleting ast");
+    for(auto& node : abstract_syntax_tree){
         if(node != nullptr){
-            delete node;
+            deleteObject(node);
+            node = nullptr;
         }
     }
-    
+
+    LOG("Parser:    deleting varBindings");
     while(varBindings.size() != 0){
-        map<string, Object*> bind = varBindings.top();
-        for(const auto& mapping : bind){
-            if(mapping.second != nullptr){
-                delete mapping.second;
-            }
-        }
-        varBindings.pop();
+        popVarBindingEnv();
     }
+    LOG("Parser:-~Parser");
 }
 
 Parser::Parser(vector<vector<string>> _lexems) : Parser() {
@@ -71,9 +69,10 @@ vector<Object*> Parser::getAST(){
 
 void Parser::parse(){
     LOG("Parser:parse");
-    for(const auto& line : lexems){
+    for(const auto& _line : lexems){
         lineIndex = 0;
-        curr = line[lineIndex];
+        curr = _line[lineIndex];
+        line = _line;
         Object* tree = generic_parse();
         abstract_syntax_tree.push_back(tree);
     }
@@ -111,7 +110,7 @@ Object* Parser::generic_parse(){
     }
     /*Atomic token*/
     else{
-        Object* rtn = logical_or();
+        Object* rtn = static_analysis();
         return rtn;
     }
     /*Unexpected lexem*/
@@ -266,6 +265,21 @@ Object* Parser::function_parse(){
     return new Function(fname, argv, new Seq(body), return_type);
 }
 
+Object* Parser::static_analysis(){
+    LOG("Parser::static_analysis");
+    Object* result = logical_or();
+    
+    /*
+     Preform static analysis on the result to see if
+     optimizations can be applied
+     */
+    
+    result = analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings, result);
+
+    LOG("Parser::-static_analysis");
+    return result;
+}
+
 Object* Parser::logical_or(){
     LOG("Paser::logical_or");
     Object* result = logical_and();
@@ -274,12 +288,7 @@ Object* Parser::logical_or(){
         result = new Logical(OR, result, logical_and());
     }
     LOG("Parser::-logical_or");
-    /*
-     Preform static analysis on the result to see if
-     optimizations can be applied
-     */
-    return analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings,
-                                 result);
+    return result;
 }
 
 Object* Parser::logical_and(){
@@ -448,11 +457,11 @@ Object* Parser::is_numeric(string val){
         double d = stod(val);
         num = new Integer(i);
         if(f != i || ((val.find(".") != std::string::npos))){
-            delete num;
+            deleteObject(num);
             num = new class Float(f);
         }
         if(val.length() - val.rfind(".") > 6){
-            delete num;
+            deleteObject(num);
             num = new class Double(d);
         }
         return num;
@@ -508,7 +517,7 @@ map<string, Int32> Parser::popTypeEnv(){
 void Parser::popVarBindingEnv(){
     map<string, Object*>* last = &(varBindings.top());
     for(const auto& binding : (*last)){
-        delete binding.second;
+        deleteObject(binding.second);
     }
     varBindings.pop();
 }
@@ -528,5 +537,5 @@ int Parser::getTypeForVar(string name){
 
 void Parser::bindVar(string name, Object* obj){
     map<string, Object*>* last = &(varBindings.top());
-    (*last)[name] = obj;
+    (*last)[name] = obj->clone();
 }

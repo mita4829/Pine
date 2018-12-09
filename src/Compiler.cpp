@@ -75,13 +75,11 @@ Compiler::Compiler(vector<Object*> _ast) : Compiler() {
     LOG("Compiler:Compiler");
     LOG("    _ast: 0x"+AddressOf(&_ast));
     LOG("    _ast.size():"+to_string(_ast.size()));
+    
     ast = _ast;
     
-    vector<Object*> flatAst;
-    Object* flatTree = nullptr;
-    
     for(const auto& tree : ast){
-        flatTree = flatten(tree);
+        flatten(tree);
     }
     
     flatAst = popFlatStack();
@@ -90,19 +88,36 @@ Compiler::Compiler(vector<Object*> _ast) : Compiler() {
     for(const auto& tree : flatAst){
         compile(tree);
     }
+
     LOG("    Completed compile");
 }
 
 Compiler::~Compiler(){
     LOG("Compiler:~Compiler");
     while(flattenStmt.size() != 0){
-        vector<Object*> frame = flattenStmt.top();
-        for(auto& stmt : frame){
+        vector<Object*>* frame = &(flattenStmt.top());
+        for(auto& stmt : *frame){
             if(stmt != nullptr){
-                delete stmt;
+                deleteObject(stmt);
+                stmt = nullptr;
             }
         }
         flattenStmt.pop();
+    }
+    LOG("Compiler:    Deleting flatAst");
+    for(auto& tree : flatAst){
+        if(tree != nullptr){
+            deleteObject(tree);
+            tree = nullptr;
+        }
+    }
+    
+    LOG("Compiler:    Deleting ast");
+    for(auto& tree : ast){
+        if(tree != nullptr){
+            deleteObject(tree);
+            tree = nullptr;
+        }
     }
 }
 
@@ -113,9 +128,15 @@ Object* Compiler::flatten(Object* expr){
     Int32 Type = expr->getType();
     LOG("    Type: "+STR(Type));
     /* Primatives */
+    /*
+     We cannot just return the primative expr/node, as the original
+     AST holds a reference to these nodes. Otherwise, freeing
+     the memory of the original AST and the flatAST will cause
+     a double free assert.
+     */
     if(Type == VAR || Type == INTEGER || Type == FLOAT ||
        Type == DOUBLE || Type == STRING || Type == BOOLEAN){
-        return expr;
+        return expr->clone();
     }
     /* Unary */
     else if(Type == UNARY){
@@ -560,7 +581,8 @@ Tuple(string, Int32) Compiler::compile(Object* expr){
         Int32 ltype = getType(c->getLeft());
         Int32 rtype = getType(c->getRight());
         if(ltype != rtype){
-            RaisePineException("Comparison operation require like-type operands.");
+            RaisePineException("Comparison operation require like-type operands.\n"
+                               "Recieved ("+getTypeName(ltype)+") and ("+getTypeName(rtype)+")");
         }
         string instruction;
         /* Jump if comparison is false */
