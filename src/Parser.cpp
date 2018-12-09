@@ -28,13 +28,7 @@ Parser::~Parser(){
 
     LOG("Parser:    deleting varBindings");
     while(varBindings.size() != 0){
-        map<string, Object*> bind = varBindings.top();
-        for(const auto& mapping : bind){
-            if(mapping.second != nullptr){
-                delete mapping.second;
-            }
-        }
-        varBindings.pop();
+        popVarBindingEnv();
     }
     LOG("Parser:-~Parser");
 }
@@ -116,7 +110,7 @@ Object* Parser::generic_parse(){
     }
     /*Atomic token*/
     else{
-        Object* rtn = logical_or();
+        Object* rtn = static_analysis();
         return rtn;
     }
     /*Unexpected lexem*/
@@ -271,6 +265,21 @@ Object* Parser::function_parse(){
     return new Function(fname, argv, new Seq(body), return_type);
 }
 
+Object* Parser::static_analysis(){
+    LOG("Parser::static_analysis");
+    Object* result = logical_or();
+    
+    /*
+     Preform static analysis on the result to see if
+     optimizations can be applied
+     */
+    
+    result = analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings, result);
+
+    LOG("Parser::-static_analysis");
+    return result;
+}
+
 Object* Parser::logical_or(){
     LOG("Paser::logical_or");
     Object* result = logical_and();
@@ -279,12 +288,7 @@ Object* Parser::logical_or(){
         result = new Logical(OR, result, logical_and());
     }
     LOG("Parser::-logical_or");
-    /*
-     Preform static analysis on the result to see if
-     optimizations can be applied
-     */
-    return result;//analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings,
-                                 //result);
+    return result;
 }
 
 Object* Parser::logical_and(){

@@ -24,6 +24,7 @@ extern vector<string> Trace;
 #define RED     "\e[1;31m"
 #define YELLOW  "\e[1;33m"
 #define WHITE   "\e[0m"
+#define CYAN    "\x1B3[36m"
 
 /*
     Global types for constant width for cross-platform compilation
@@ -206,6 +207,8 @@ public:
     ~Binary();
     Object* getLeft();
     Object* getRight();
+    void setLeft(Object*);
+    void setRight(Object*);
     Int32  getOperation();
     virtual void print();
     virtual Object* clone();
@@ -222,6 +225,8 @@ public:
     ~Compare();
     Object* getLeft();
     Object* getRight();
+    void setLeft(Object*);
+    void setRight(Object*);
     Int32  getOperation();
     virtual void print();
     virtual Object* clone();
@@ -326,6 +331,8 @@ public:
     Int32  getOperation();
     Object* getLeft();
     Object* getRight();
+    void setLeft(Object*);
+    void setRight(Object*);
     virtual void print();
     virtual Object* clone();
 };
@@ -382,4 +389,5 @@ T Safe_Cast(Object* obj) {
     return (T)obj;
 }
 
+string getTypeName(Int32 type);
 #endif

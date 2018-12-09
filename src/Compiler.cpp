@@ -574,7 +574,8 @@ Tuple(string, Int32) Compiler::compile(Object* expr){
         Int32 ltype = getType(c->getLeft());
         Int32 rtype = getType(c->getRight());
         if(ltype != rtype){
-            RaisePineException("Comparison operation require like-type operands.");
+            RaisePineException("Comparison operation require like-type operands.\n"
+                               "Recieved ("+getTypeName(ltype)+") and ("+getTypeName(rtype)+")");
         }
         string instruction;
         /* Jump if comparison is false */

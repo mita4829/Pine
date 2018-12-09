@@ -159,12 +159,12 @@ String::String(string _val){
     Type = STRING;
     val = _val;
 }
-String::~String(){}
+String::~String(){LOG("Foundation:~String");}
 string String::getVal(){
     return val;
 }
 void String::print(){
-    cout<<"S(\"" <<val<< "\")";
+    cout<<"String(" <<val<< ")";
 }
 
 Object* String::clone(){
@@ -244,6 +244,14 @@ Object* Binary::getRight(){
     return right;
 }
 
+void Binary::setLeft(Object* val){
+    left = val;
+}
+
+void Binary::setRight(Object* val){
+    right = val;
+}
+
 Int32 Binary::getOperation(){
     return operation;
 }
@@ -313,6 +321,14 @@ Object* Compare::getLeft(){
 
 Object* Compare::getRight(){
     return right;
+}
+
+void Compare::setLeft(Object* val){
+    left = val;
+}
+
+void Compare::setRight(Object* val){
+    right = val;
 }
 
 Int32 Compare::getOperation(){
@@ -397,6 +413,7 @@ Print::Print(Object* _val){
 }
 
 Print::~Print(){
+    LOG("Foundation:~Print");
     if(val != nullptr){
         delete val;
         val = nullptr;
@@ -424,6 +441,7 @@ Function::Function(){
 }
 
 Function::~Function(){
+    LOG("Foundation:~Function");
     for(const auto &elem : argv){
         if(elem != nullptr){
             delete elem;
@@ -650,6 +668,14 @@ Object* Logical::getRight(){
     return right;
 }
 
+void Logical::setLeft(Object* val){
+    left = val;
+}
+
+void Logical::setRight(Object* val){
+    right = val;
+}
+
 void Logical::print(){
     cout << "Logical(";
     cout << operation;
@@ -713,7 +739,7 @@ void Assign::print(){
 }
 
 Object* Assign::clone(){
-    Assign* copy = new Assign(name, val->clone());
+    Assign* copy = new Assign(name->clone(), val->clone());
     return copy;
 }
 
@@ -831,4 +857,35 @@ Object* While::clone(){
     While* copy = new While(condition->clone(),
                             Safe_Cast<Seq*>(body->clone()));
     return copy;
+}
+
+
+string getTypeName(Int32 type){
+    string translation[] = {
+        "OBJECT",
+        "VAR",
+        "NUMBER",
+        "BOOLEAN",
+        "INTEGER",
+        "FLOAT",
+        "DOUBLE",
+        "STRING",
+        "VOID",
+        "LET",
+        "BINARY",
+        "COMPARE",
+        "PRINT",
+        "FUNCTION",
+        "UNARY",
+        "SEQ",
+        "IF",
+        "LOGICAL",
+        "ASSIGN",
+        "FOR",
+        "WHILE",
+        "STACKLOC",
+        "REG",
+    };
+    
+    return translation[type];
 }
