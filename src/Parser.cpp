@@ -21,7 +21,7 @@ Parser::~Parser(){
     LOG("Parser:    deleting ast");
     for(auto& node : abstract_syntax_tree){
         if(node != nullptr){
-            delete node;
+            deleteObject(node);
             node = nullptr;
         }
     }
@@ -457,11 +457,11 @@ Object* Parser::is_numeric(string val){
         double d = stod(val);
         num = new Integer(i);
         if(f != i || ((val.find(".") != std::string::npos))){
-            delete num;
+            deleteObject(num);
             num = new class Float(f);
         }
         if(val.length() - val.rfind(".") > 6){
-            delete num;
+            deleteObject(num);
             num = new class Double(d);
         }
         return num;
@@ -517,7 +517,7 @@ map<string, Int32> Parser::popTypeEnv(){
 void Parser::popVarBindingEnv(){
     map<string, Object*>* last = &(varBindings.top());
     for(const auto& binding : (*last)){
-        delete binding.second;
+        deleteObject(binding.second);
     }
     varBindings.pop();
 }

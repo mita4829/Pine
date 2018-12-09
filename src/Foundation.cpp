@@ -1,6 +1,7 @@
 #include "Foundation.hpp"
 
 vector<string> Trace;
+map<Int32, Object*> memoryPool;
 
 void DEBUG(string message){
     LOG("Foundation:DEBUG");
@@ -40,10 +41,22 @@ bool isPrimative(Int32 Type){
             Type == BOOLEAN);
 }
 
-Object::Object(){LOG("Foundation:Object");}
+Object::Object(){
+    static UInt32 memoryPoolID = 0;
+    LOG("Foundation:Object");
+    LOG("    memoryPoolID: "+STR(memoryPoolID));
+    
+    poolID = memoryPoolID;
+    memoryPool[memoryPoolID] = this;
+    
+    memoryPoolID += 1;
+}
 Object::~Object(){LOG("Foundation:~Object");}
 Int32 Object::getType(){
     return Type;
+}
+UInt32 Object::getMemoryPoolID(){
+    return poolID;
 }
 void Object::print(){
     cout<<"Obj()"<<endl;
@@ -185,7 +198,7 @@ Let::Let(string _lval, Int32 _expectedType, Object* _rval){
 
 Let::~Let(){
     if(rval != nullptr){
-        delete rval;
+        deleteObject(rval);
         rval = nullptr;
     }
 }
@@ -227,11 +240,11 @@ Binary::Binary(Int32 _operation, Object* l, Object* r){
 Binary::~Binary(){
     LOG("Foundation:~Binary");
     if(left != nullptr){
-        delete left;
+        deleteObject(left);
         left = nullptr;
     }
     if(right != nullptr){
-        delete right;
+        deleteObject(right);
         right = nullptr;
     }
 }
@@ -306,11 +319,11 @@ Compare::Compare(Int32 _operation, Object* l, Object* r){
 
 Compare::~Compare(){
     if(left != nullptr){
-        delete left;
+        deleteObject(left);
         left = nullptr;
     }
     if(right != nullptr){
-        delete right;
+        deleteObject(right);
         right = nullptr;
     }
 }
@@ -415,7 +428,7 @@ Print::Print(Object* _val){
 Print::~Print(){
     LOG("Foundation:~Print");
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
         val = nullptr;
     }
 }
@@ -444,12 +457,12 @@ Function::~Function(){
     LOG("Foundation:~Function");
     for(const auto &elem : argv){
         if(elem != nullptr){
-            delete elem;
+            deleteObject(elem);
         }
     }
     argv.clear();
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
         body = nullptr;
     }
 }
@@ -504,7 +517,7 @@ Unary::Unary(){
 
 Unary::~Unary(){
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
         val = nullptr;
     }
 }
@@ -538,7 +551,7 @@ Seq::Seq(){
 Seq::~Seq(){
     for(const auto &elem : stmt){
         if(elem != nullptr){
-            delete elem;
+            deleteObject(elem);
         }
     }
 }
@@ -583,15 +596,15 @@ If::If(){
 
 If::~If(){
     if(condition != nullptr){
-        delete condition;
+        deleteObject(condition);
         condition = nullptr;
     }
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
         body = nullptr;
     }
     if(Else != nullptr){
-        delete Else;
+        deleteObject(Else);
         Else = nullptr;
     }
 }
@@ -641,11 +654,11 @@ Logical::Logical(){
 
 Logical::~Logical(){
     if(left != nullptr){
-        delete left;
+        deleteObject(left);
         left = nullptr;
     }
     if(right != nullptr){
-        delete right;
+        deleteObject(right);
         right = nullptr;
     }
 }
@@ -701,11 +714,11 @@ Assign::Assign(){
 
 Assign::~Assign(){
     if(name != nullptr){
-        delete name;
+        deleteObject(name);
         name = nullptr;
     }
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
         val = nullptr;
     }
 }
@@ -725,7 +738,7 @@ Object* Assign::getVal(){
 
 void Assign::replaceVal(Object* nval){
     if(val != nullptr){
-        delete val;
+        deleteObject(val);
     }
     val = nval;
 }
@@ -753,19 +766,19 @@ For::For(){
 
 For::~For(){
     if(declare != nullptr){
-        delete declare;
+        deleteObject(declare);
         declare = nullptr;
     }
     if(condition != nullptr){
-        delete condition;
+        deleteObject(condition);
         condition = nullptr;
     }
     if(incrementor != nullptr){
-        delete incrementor;
+        deleteObject(incrementor);
         incrementor = nullptr;
     }
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
         body = nullptr;
     }
 }
@@ -829,11 +842,11 @@ While::While(Object* _condition, Seq* _body) : While() {
 
 While::~While(){
     if(condition != nullptr){
-        delete condition;
+        deleteObject(condition);
     }
     
     if(body != nullptr){
-        delete body;
+        deleteObject(body);
     }
 }
 
@@ -889,3 +902,13 @@ string getTypeName(Int32 type){
     
     return translation[type];
 }
+
+void deleteObject(Object* o){
+    UInt32 memoryPoolID = o->getMemoryPoolID();
+    if(memoryPool[memoryPoolID] != nullptr){
+        delete memoryPool[memoryPoolID];
+        memoryPool[memoryPoolID] = nullptr;
+    }
+}
+
+

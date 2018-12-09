@@ -25,19 +25,19 @@ Object* Static::Fold(Object* ast){
             if(o->getType() == INTEGER){
                 Int32 neg = -(Safe_Cast<Integer*>(o)->getVal());
                 Integer* result = new Integer(neg);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(o->getType() == FLOAT){
                 float neg = -(Safe_Cast<class Float*>(o)->getVal());
                 class Float* result = new class Float(neg);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(o->getType() == Double){
                 double neg = -(Safe_Cast<class Double*>(o)->getVal());
                 class Double* result = new class Double(neg);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
         }
@@ -66,21 +66,21 @@ Object* Static::Fold(Object* ast){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() +
                                 Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() +
                                 Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() +
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
             }
@@ -89,21 +89,21 @@ Object* Static::Fold(Object* ast){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() -
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() -
                     Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() -
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
             }
@@ -112,21 +112,21 @@ Object* Static::Fold(Object* ast){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() *
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() *
                     Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() *
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
             }
@@ -135,21 +135,21 @@ Object* Static::Fold(Object* ast){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() /
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() /
                     Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
                 else if(l->getType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() /
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
             }
@@ -158,7 +158,7 @@ Object* Static::Fold(Object* ast){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() %
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
-                    delete ast;
+                    deleteObject(ast);
                     return foldResult;
                 }
             }
@@ -190,42 +190,42 @@ Object* Static::Fold(Object* ast){
                 Int32 lt = Safe_Cast<Integer*>(l)->getVal() <
                            Safe_Cast<Integer*>(r)->getVal();
                 Boolean* result = new Boolean(lt);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(c->getOperation() == LTE){
                 Int32 lte = Safe_Cast<Integer*>(l)->getVal() <=
                 Safe_Cast<Integer*>(r)->getVal();
                 Boolean* result = new Boolean(lte);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(c->getOperation() == EQU){
                 Int32 eq = Safe_Cast<Integer*>(l)->getVal() ==
                 Safe_Cast<Integer*>(r)->getVal();
                 Boolean* result = new Boolean(eq);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(c->getOperation() == GTE){
                 Int32 gte = Safe_Cast<Integer*>(l)->getVal() >=
                 Safe_Cast<Integer*>(r)->getVal();
                 Boolean* result = new Boolean(gte);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(c->getOperation() == GT){
                 Int32 gt = Safe_Cast<Integer*>(l)->getVal() >
                 Safe_Cast<Integer*>(r)->getVal();
                 Boolean* result = new Boolean(gt);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(c->getOperation() == NEQ){
                 Int32 neq = Safe_Cast<Integer*>(l)->getVal() !=
                 Safe_Cast<Integer*>(r)->getVal();
                 Boolean* result = new Boolean(neq);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
         }
@@ -256,14 +256,14 @@ Object* Static::Fold(Object* ast){
                 Int32 res = Safe_Cast<Boolean*>(l)->getVal() ||
                           Safe_Cast<Boolean*>(r)->getVal();
                 Boolean* result = new Boolean(res);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
             else if(o->getOperation() == AND){
                 Int32 res = Safe_Cast<Boolean*>(l)->getVal() &&
                           Safe_Cast<Boolean*>(r)->getVal();
                 Boolean* result = new Boolean(res);
-                delete ast;
+                deleteObject(ast);
                 return result;
             }
         }

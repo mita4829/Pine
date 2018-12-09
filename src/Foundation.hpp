@@ -12,7 +12,22 @@
 #include <sstream>
 using namespace std;
 
+/*
+ Global types for constant width for cross-platform compilation
+ */
+typedef int8_t      Int8;
+typedef int16_t     Int16;
+typedef int32_t     Int32;
+typedef int64_t     Int64;
+typedef uint8_t     UInt8;
+typedef uint16_t    UInt16;
+typedef uint32_t    UInt32;
+typedef uint32_t    UInt;
+typedef uint64_t    UInt64;
+typedef char        Char;
+
 extern vector<string> Trace;
+
 #define LOG(str) Trace.push_back(str)
 #define Printf(str) cout << str << endl
 #define tuple(T,V) make_tuple(T, V)
@@ -24,21 +39,6 @@ extern vector<string> Trace;
 #define RED     "\e[1;31m"
 #define YELLOW  "\e[1;33m"
 #define WHITE   "\e[0m"
-#define CYAN    "\x1B3[36m"
-
-/*
-    Global types for constant width for cross-platform compilation
-*/
-typedef int8_t      Int8;
-typedef int16_t     Int16;
-typedef int32_t     Int32;
-typedef int64_t     Int64;
-typedef uint8_t     UInt8;
-typedef uint16_t    UInt16;
-typedef uint32_t    UInt32;
-typedef uint32_t    UInt;
-typedef uint64_t    UInt64;
-typedef char        Char;
 
 enum Expr {
     OBJECT,
@@ -104,13 +104,17 @@ bool isPrimative(Int32 Type);
 class Object {
 protected:
     Int32  Type = OBJECT;
+    UInt32 poolID;
 public:
     Object();
     virtual ~Object();
     Int32  getType();
+    UInt32 getMemoryPoolID();
     virtual void print();
     virtual Object* clone();
 };
+
+extern map<Int32, Object*> memoryPool;
 
 class Number : public Object {
 public:
@@ -390,4 +394,5 @@ T Safe_Cast(Object* obj) {
 }
 
 string getTypeName(Int32 type);
+void deleteObject(Object* ptr);
 #endif

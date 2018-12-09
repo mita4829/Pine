@@ -75,13 +75,11 @@ Compiler::Compiler(vector<Object*> _ast) : Compiler() {
     LOG("Compiler:Compiler");
     LOG("    _ast: 0x"+AddressOf(&_ast));
     LOG("    _ast.size():"+to_string(_ast.size()));
+    
     ast = _ast;
     
-    vector<Object*> flatAst;
-    Object* flatTree = nullptr;
-    
     for(const auto& tree : ast){
-        flatTree = flatten(tree);
+        flatten(tree);
     }
     
     flatAst = popFlatStack();
@@ -90,25 +88,34 @@ Compiler::Compiler(vector<Object*> _ast) : Compiler() {
     for(const auto& tree : flatAst){
         compile(tree);
     }
+
     LOG("    Completed compile");
 }
 
 Compiler::~Compiler(){
     LOG("Compiler:~Compiler");
     while(flattenStmt.size() != 0){
-        vector<Object*> frame = flattenStmt.top();
-        for(auto& stmt : frame){
+        vector<Object*>* frame = &(flattenStmt.top());
+        for(auto& stmt : *frame){
             if(stmt != nullptr){
-                delete stmt;
+                deleteObject(stmt);
                 stmt = nullptr;
             }
         }
         flattenStmt.pop();
     }
+    LOG("Compiler:    Deleting flatAst");
+    for(auto& tree : flatAst){
+        if(tree != nullptr){
+            deleteObject(tree);
+            tree = nullptr;
+        }
+    }
     
+    LOG("Compiler:    Deleting ast");
     for(auto& tree : ast){
         if(tree != nullptr){
-            delete tree;
+            deleteObject(tree);
             tree = nullptr;
         }
     }
@@ -206,7 +213,7 @@ Object* Compiler::flatten(Object* expr){
         pushNewFlatStack();
         vector<Object*> body_stmt = s->getStatements();
         for(const auto& stmt : body_stmt){
-            flatten(stmt->clone());
+            flatten(stmt);
         }
         vector<Object*> flatBody  = popFlatStack();
         return new Seq(flatBody);
