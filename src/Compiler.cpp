@@ -220,11 +220,20 @@ Object* Compiler::flatten(Object* expr){
     }
     /* If */
     else if(Type == IF){
-        If* i       = Safe_Cast<If*>(expr);
-        Object* con = flatten(i->getCondition());
-        Seq* seq    = Safe_Cast<Seq*>(flatten(i->getBody()));
-        Seq* seqe   = Safe_Cast<Seq*>(flatten(i->getElse()));
-        addFlatStmtToStack(new If(con, seq, seqe));
+        If*                          ifExpr = Safe_Cast<If*>(expr);
+        vector<tuple<Object*, Seq*>> ifStmt = ifExpr->getIfStmt();
+        vector<tuple<Object*, Seq*>> flatStmt;
+        Object*                    elseBody = nullptr;
+        for(const auto& stmt : ifStmt){
+            tuple<Object*, Seq*> flatIfStmt = make_tuple(flatten(get<0>(stmt)),
+                                                         Safe_Cast<Seq*>(flatten(get<1>(stmt))));
+            flatStmt.push_back(flatIfStmt);
+        }
+        
+        elseBody = ifExpr->getElse();
+        elseBody = flatten(elseBody);
+        
+        addFlatStmtToStack(new If(flatStmt, Safe_Cast<Seq*>(elseBody)));
         return nullptr;
     }
     /*Compare*/
@@ -544,29 +553,38 @@ Tuple(string, Int32) Compiler::compile(Object* expr){
     /*If*/
     else if(Type == IF){
         If* i = Safe_Cast<If*>(expr);
-        Tuple(string, Int32) con = compile(i->getCondition());
-        Int32 conType = getType(i->getCondition());
-        if(conType != BOOLEAN &&
-           conType != COMPARE &&
-           conType != LOGICAL)
-        {
-            RaisePineException("If statement conditions must be evaluable to a Boolean type.");
-        }
-        string ins1 = IntoRegister(get<0>(con));
+        vector<tuple<Object*, Seq*>> ifStmt = i->getIfStmt();
+        /* For each if / if else statement, compile the condition
+         and the following body.
+         */
         string ins2 = "SHORT_"+to_string(requestShortID());
-        string ins3 = "ELSE_"+to_string(requestJumpID());
-        string ins4 = "cmpq $1, %"+ins1;
-        string ins5  = "jne "+ins3;
+        for (const auto& stmt : ifStmt){
+            Object* condition = get<0>(stmt);
+            Int32 conType = getType(condition);
+            if(conType != BOOLEAN &&
+               conType != COMPARE &&
+               conType != LOGICAL)
+            {
+                RaisePineException("If statement conditions must be evaluable to a Boolean type.");
+            }
+            Tuple(string, Int32) con = compile(condition);
+            string ins1 = IntoRegister(get<0>(con));
+            
+            string ins3 = "ELSE_ELIF_"+to_string(requestJumpID());
+            string ins4 = "cmpq $1, %"+ins1;
+            string ins5  = "jne "+ins3;
+            addCompileStmt(ins4);
+            addCompileStmt(ins5);
+            /* Compile then body */
+            compile(get<1>(stmt));
+            addCompileStmt("jmp "+ins2);
+            addCompileStmt(ins3+":");
+        }
         
-        addCompileStmt(ins4);
-        addCompileStmt(ins5);
-        /* Compile then body */
-        compile(i->getBody());
-        
-        addCompileStmt("jmp "+ins2);
-        addCompileStmt(ins3+":");
-        /* Compile else body */
-        compile(i->getElse());
+        /* Compile else body if it exist*/
+        if(i->getElse() != nullptr){
+            compile(i->getElse());
+        }
         
         addCompileStmt(ins2+":");
         

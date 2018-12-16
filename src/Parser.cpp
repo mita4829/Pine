@@ -161,33 +161,49 @@ Object* Parser::let_parse(){
 
 Object* Parser::if_parse(){
     LOG("Parser:if_parse");
-    next(); // (
-    Object* condition = generic_parse();
-    next(); // )
-    next(); // {
-    vector<Object*> body;
-    while(curr != "}"){
-        Object* stmt = generic_parse();
-        body.push_back(stmt);
-        next();
-    }
-    next(); // }
+    vector<tuple<Object*, Seq*>> ifStmt;
     vector<Object*> Else;
-    if(curr == "else"){
-        next();
-        next();
+    
+    do {
+        // If were on an else if branch, skip those two tokens
+        if(curr == "else" && peek() == "if"){
+            next(); // else
+            next(); // if
+        }
+        next(); // (
+        Object* condition = generic_parse();
+        next(); // )
+        next(); // {
+        vector<Object*> body;
+        while(curr != "}"){
+            Object* stmt = generic_parse();
+            body.push_back(stmt);
+            next();
+        }
+        next(); // }
+        
+        ifStmt.push_back(make_tuple(condition,
+                                    new Seq(body)));
+        
+    } while (curr == "else" && peek() == "if");
+    
+    if (curr == "else"){
+        next(); // else
+        next(); // {
         while(curr != "}"){
             Object* stmt = generic_parse();
             Else.push_back(stmt);
             next();
         }
-        next();
+        next(); // }
     }
+    
     if(curr != ";"){
         RaisePineException("If statement expected semi-colon at ending.");
     }
+    
     LOG("Parser::-if_parse");
-    return new If(condition, new Seq(body), new Seq(Else));
+    return new If(ifStmt, new Seq(Else));
 }
 
 Object* Parser::for_parse(){

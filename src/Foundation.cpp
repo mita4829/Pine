@@ -589,19 +589,12 @@ Object* Seq::clone(){
 
 If::If(){
     Type        = IF;
-    condition   = nullptr;
-    body        = nullptr;
-    Else        = nullptr;
 }
 
 If::~If(){
-    if(condition != nullptr){
-        deleteObject(condition);
-        condition = nullptr;
-    }
-    if(body != nullptr){
-        deleteObject(body);
-        body = nullptr;
+    for(const auto& stmt : ifStmt){
+        deleteObject(get<0>(stmt));
+        deleteObject(get<1>(stmt));
     }
     if(Else != nullptr){
         deleteObject(Else);
@@ -609,18 +602,13 @@ If::~If(){
     }
 }
 
-If::If(Object* _condition, Seq* _body, Seq* _Else) : If() {
-    condition = _condition;
-    body = _body;
+If::If(vector<tuple<Object*, Seq*>> _ifStmt, Seq* _Else) : If() {
+    ifStmt = _ifStmt;
     Else = _Else;
 }
 
-Object* If::getCondition(){
-    return condition;
-}
-
-Seq* If::getBody(){
-    return body;
+vector<tuple<Object*, Seq*>> If::getIfStmt(){
+    return ifStmt;
 }
 
 Seq* If::getElse(){
@@ -629,9 +617,13 @@ Seq* If::getElse(){
 
 void If::print(){
     cout << "If(";
-    condition->print();
-    cout << ", ";
-    body->print();
+    for(const auto& stmt : ifStmt){
+        cout << "[";
+        get<0>(stmt)->print();
+        cout << ":";
+        get<1>(stmt)->print();
+        cout << "],";
+    }
     cout << ", ";
     if(Else != nullptr){
         Else->print();
@@ -640,8 +632,15 @@ void If::print(){
 }
 
 Object* If::clone(){
-    If* copy = new If(condition->clone(),
-                      Safe_Cast<Seq*>(body->clone()),
+    vector<tuple<Object*, Seq*>> copyStmt;
+    for(const auto& stmt : ifStmt){
+        tuple<Object*, Seq*> copyIfStmt =
+        make_tuple((get<0>(stmt))->clone(),
+                   Safe_Cast<Seq*>( (get<1>(stmt))->clone() ) );
+        
+        copyStmt.push_back(copyIfStmt);
+    }
+    If* copy = new If(copyStmt,
                       Safe_Cast<Seq*>(Else->clone()));
     return copy;
 }
