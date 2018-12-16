@@ -1,5 +1,30 @@
 #include "Compiler.hpp"
 
+/*
+ crossPlatformFunctionCall
+ 
+ Parameters:
+    functionName - The string of the function name to be called in assembly
+ 
+ Return:
+    A function name that will be called with the correct syntax depending
+    on the platform.
+ */
+string crossPlatformFunctionCall(string functionName){
+#ifdef __APPLE__
+    #include "TargetConditionals.h"
+    #ifdef TARGET_OS_MAC
+    return "_" + functionName;
+    #endif // _TARGET_OS_MAC
+#endif // __APPLE__
+   
+#ifdef __linux__
+    return functionName;
+#endif // __linux__
+    RaisePineWarning("Pine is being compiled on an unsupported platform.");
+    return functionName;
+}
+
 string requestTmpVarName(){
     LOG("Compiler:requestTmpVarName");
     static Int32 id = -1;
@@ -494,8 +519,8 @@ Tuple(string, Int32) Compiler::compile(Object* expr){
         addFrontCompileStmt(ins5);
         addFrontCompileStmt(ins6);
         
-        string ins7    = "_"+f->getName()+":";
-        string ins8    = ".global _"+f->getName();
+        string ins7    = crossPlatformFunctionCall(f->getName())+":";
+        string ins8    = ".global "+crossPlatformFunctionCall(f->getName());
         
         addFrontCompileStmt(ins7);
         addFrontCompileStmt(ins8);
@@ -804,35 +829,35 @@ void Compiler::PolymorphicPrint(Object* expr, Tuple(string, Int32) result){
         string val = "leaq -"+STR(stackLocation)+"(%rbp), %rsi";
         addCompileStmt(val);
         string type = "movq $"+STR(EXPR_TYPE)+", %rdi";
-        string call = "callq _PinePrint";
+        string call = "callq " + crossPlatformFunctionCall("PinePrint");
         addCompileStmt(type);
         addCompileStmt(call);
     }else if(get<1>(result) == STACKLOC){
         string val = "leaq "+get<0>(result)+", %rsi";
         addCompileStmt(val);
         string type = "movq $"+STR(EXPR_TYPE)+", %rdi";
-        string call = "callq _PinePrint";
+        string call = "callq " + crossPlatformFunctionCall("PinePrint");
         addCompileStmt(type);
         addCompileStmt(call);
     }else if(EXPR_TYPE == INTEGER){
         string ins1 = "movq "+get<0>(result)+", %rdi";
-        string ins2 = "callq _PinePrintInt";
+        string ins2 = "callq " + crossPlatformFunctionCall("PinePrintInt");
         addCompileStmt(ins1);
         addCompileStmt(ins2);
     }else if(EXPR_TYPE == STRING){
         string ins1 = "movq %"+get<0>(result)+", %rdi";
         addCompileStmt(ins1);
-        string ins2 = "callq _PinePrintString";
+        string ins2 = "callq " + crossPlatformFunctionCall("PinePrintString");
         addCompileStmt(ins2);
     }else if(EXPR_TYPE == BOOLEAN){
         string ins1 = "movq "+get<0>(result)+", %rdi";
         addCompileStmt(ins1);
-        string ins2 = "callq _PinePrintBoolean";
+        string ins2 = "callq " + crossPlatformFunctionCall("PinePrintBoolean");
         addCompileStmt(ins2);
     }else if(EXPR_TYPE == FLOAT){
         string ins1 = "movq "+get<0>(result)+", %rdi";
         addCompileStmt(ins1);
-        string ins2 = "callq _PinePrintFloat";
+        string ins2 = "callq " + crossPlatformFunctionCall("PinePrintFloat");
         addCompileStmt(ins2);
     }
 
