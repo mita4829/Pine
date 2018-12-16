@@ -2,8 +2,8 @@
 # Pine
 | |**Master**|
 |---|:--:|
-|**GCC**|[![Build Status](https://travis-ci.org/mita4829/Pine.svg?branch=master)](https://travis-ci.org/mita4829/Pine)|
-|**Clang**|Not Tested|
+|**GCC**|Not Tested|
+|**Clang**|[![Build Status](https://travis-ci.org/mita4829/Pine.svg?branch=master)](https://travis-ci.org/mita4829/Pine)|
 
 
 
@@ -41,7 +41,7 @@ Pine is white-space insensitive. All statements must be ended with a semi-colon.
 
 This is how you define a new variable named `acorn` that's of type `String` with the value `"Tree"`.
 ```
-let acorn:String = "Tree";
+let pine:String = "Tree";
 ```
 All variables in Pine are statically-typed. All variables must have unique names in the given scope. Names can be composed of one or more characters, numbers, or symbols, but the first character in the name cannot be a number or symbol. Re-assigning a variable with a value of different type from its original type definition will result in a Pine exception. The type given at the definition site is optional, but it's highly recommendend. Pine will make an attempt to infer the type of the variable at the definition point if no type is given. 
 
@@ -60,10 +60,28 @@ Pine supports the following operators on numeric operands. All numeric operators
 |Multiplcation, Division| *, \ |
 |Addition, Subtraction| +, - |
 
-**Examples**
+**Example**
 ```
-let answer:Int = 42;
-let price:Float = 0.99;
-let pi:Double = 3.14159;
+let  pineConeCountPerTree:Int = 42;
+let         numberOfTrees:Int = 100;
+let totalNumberOfPineCone:Int = pineConeCountPerTree * numberOfTrees;
+```
 
+**Boolean Values**
+
+Pine supports the boolean type, `Bool`. Any variable that is of type `Bool` must have a value that is of type `Bool` or be evaluable to type `Bool`.
+
+**Logical Operations**
+Pine supports the following operators on `Bool` operands. All logical operators must have operand(s) that are the same type else a Pine exception will occur. From greatest to least precendence: 
+
+| |**Operators**|
+|---|:--:|
+|Parentheses| (_expression_)|
+|Logical And| && |
+|Logical Or| \|\| |
+
+**Example**
+```
+let arePineTreeReferencesFun:Bool = True;
+let       pineConeTeaIsTasty:Bool = False;
 ```
