@@ -9,6 +9,8 @@ NORMAL = "\033[0m"
 
 print(GREEN+"Building Pine"+NORMAL)
 os.system("cd src/; make; cd ..")
+print(GREEN+"Building PineRuntime"+NORMAL)
+os.system("cd src/; gcc -std=c11 PineRuntime.c -S; cp PineRuntime.s ../Tests")
 
 
 os.chdir("Tests")

@@ -309,15 +309,13 @@ public:
 
 class If : public Object {
 private:
-    Object* condition;
-    Seq* body;
+    vector<tuple<Object*, Seq*>> ifStmt;
     Seq* Else = nullptr;
 public:
     If();
     ~If();
-    If(Object* condition, Seq* body, Seq* Else);
-    Object* getCondition();
-    Seq* getBody();
+    If(vector<tuple<Object*, Seq*>> ifStmt, Seq* Else);
+    vector<tuple<Object*, Seq*>> getIfStmt();
     Seq* getElse();
     virtual void print();
     virtual Object* clone();
