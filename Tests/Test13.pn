@@ -1,0 +1,9 @@
+/* Indexing arrays */
+func main() -> Int {
+    let a:[Int] = [1, 2, 4, 8, 16];
+    print(a[2]);
+
+    if(a[3] == 8){
+        print(a[3]);
+    };
+};

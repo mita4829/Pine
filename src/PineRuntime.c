@@ -24,6 +24,7 @@ enum Expr {
     WHILE,
     STACKLOC,
     REG,
+    ARRAY = (1 << 8)
 };
 
 void PinePrint(int id, void* val){
@@ -71,4 +72,56 @@ void PinePrintBoolean(int val){
 
 void PinePrintFloat(float val){
     printf("%f", val);
+}
+
+void PinePrintArray(int length, int type, void* buffer){
+    printf("[");
+    if(type == INTEGER){
+        long long int* array = (long long int*)buffer;
+        for(int i = 0; i < length; i++){
+            printf("%lld", (*array));
+            if(i != length-1){
+                printf(", ");
+            }
+            array--;
+        }
+    }
+    else if(type == BOOLEAN){
+        long long int* array = (long long int*)buffer;
+        for(int i = 0; i < length; i++){
+            long long int boolValue = *array;
+            if(boolValue == 1){
+                printf("True");
+            }else{
+                printf("False");
+            }
+            if(i != length-1){
+                printf(", ");
+            }
+            array--;
+        }
+    }
+    else if(type == FLOAT){
+        float* array = (float*)buffer;
+        for(int i = 0; i < length; i++){
+            printf("%f", *array);
+            if(i != length-1){
+                printf(", ");
+            }
+            array--;
+        }
+    }
+    printf("]");
+}
+
+void PinePrintLeftBracket(){
+    printf("[");
+}
+
+void PinePrintRightBracket(){
+    printf("]");
+}
+
+void PinePrintComma(){
+    printf(", ");
 }
