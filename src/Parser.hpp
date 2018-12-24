@@ -23,7 +23,7 @@ private:
     string peek();
     
     Object* is_numeric(string val);
-    Int32 translateType(string type);
+    Int32 translateType(string type, Int32& arrayDepth);
     
 public:
     Parser();
@@ -39,6 +39,7 @@ public:
     Object* for_parse();
     Object* while_parse();
     Object* function_parse();
+    Object* array_parse();
     Object* static_analysis();
     Object* logical_or();
     Object* logical_and();

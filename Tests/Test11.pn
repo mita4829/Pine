@@ -1,0 +1,16 @@
+/* Else if */
+func main() -> Int {
+    let t = True;
+    let f = False;
+    if(f){
+        print("False");
+    }else if(t && f){
+        print("True, False");
+    }else if(f && t){
+        print("False, True");
+    }else if(t || (t || f)){
+        print("True, (True, False)");
+    }else{
+        print("End");
+    };
+};

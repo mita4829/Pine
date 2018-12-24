@@ -28,6 +28,8 @@ typedef char        Char;
 
 extern vector<string> Trace;
 
+#define ARCH64 8
+#define ARCH32 4
 #define LOG(str) Trace.push_back(str)
 #define Printf(str) cout << str << endl
 #define tuple(T,V) make_tuple(T, V)
@@ -39,6 +41,12 @@ extern vector<string> Trace;
 #define RED     "\e[1;31m"
 #define YELLOW  "\e[1;33m"
 #define WHITE   "\e[0m"
+
+struct ObjectContext {
+    Int32 primativeType;
+    Int32 arrayDepth;
+    Int32 stackLocation;
+};
 
 enum Expr {
     OBJECT,
@@ -64,7 +72,11 @@ enum Expr {
     WHILE,
     STACKLOC,
     REG,
+    INDEX,
+    ARRAY = (1 << 8)
 };
+
+#define isArray(T) (ARRAY & T) == ARRAY
 
 enum OPERATION {
     ADD,
@@ -106,6 +118,7 @@ protected:
     Int32  Type = OBJECT;
     UInt32 poolID;
 public:
+    ObjectContext context;
     Object();
     virtual ~Object();
     Int32  getType();
@@ -245,7 +258,7 @@ public:
     ~Var();
     Var(string name, Int32  type);
     string getName();
-    Int32  getType();
+    Int32  getVarType();
     virtual void print();
     virtual Object* clone();
 };
@@ -382,6 +395,39 @@ public:
     While(Object* condition, Seq* body);
     Object* getCondition();
     Seq* getBody();
+    virtual void print();
+    virtual Object* clone();
+};
+
+class Array : public Object {
+private:
+    vector<Object*> array;
+    Int32 length;
+    Int32 elementType;
+public:
+    Array();
+    ~Array();
+    Array(vector<Object*> array, Int32 length, Int32 elementType);
+    vector<Object*> getArray();
+    Int32 getLength();
+    Int32 getElementType();
+    virtual void print();
+    virtual Object* clone();
+};
+
+class Index : public Object {
+private:
+    string  arrayName;
+    Object* index;
+    Int32   elementType;
+public:
+    Index();
+    Index(string arrayName, Object* index, Int32 elementType);
+    ~Index();
+    Int32 getElementType();
+    string getArrayName();
+    Object* getIndex();
+    void setIndex(Object* val);
     virtual void print();
     virtual Object* clone();
 };

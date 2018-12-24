@@ -269,12 +269,21 @@ Object* Static::Fold(Object* ast){
         }
     }
     else if(Type == ASSIGN){
-//        Assign* a = Safe_Cast<Assign*>(ast);
-//        Object* v = Fold(a->getVal());
-//        a->replaceVal(v);
         return ast;
     }
-    RaisePineWarning("Static analysis did not catch case for: "+STR(Type));
+    else if(Type == INDEX){
+        Index*      index = Safe_Cast<Index*>(ast);
+        Object* foldIndex = Fold(index->getIndex());
+        string arrayName  = index->getArrayName();
+        Int32  elementType= index->getElementType();
+        
+        if (index->getIndex() != foldIndex) {
+            deleteObject(ast);
+            return new Index(arrayName, foldIndex, elementType);
+        }
+        return ast;
+    }
+    RaisePineWarning("Static analysis did not catch case for: "+getTypeName(Type));
     return ast;
 }
 

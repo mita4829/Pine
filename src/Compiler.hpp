@@ -5,6 +5,14 @@
 
 #include "Register.hpp"
 
+struct CompilerResult {
+    Int32   resultType;
+    Int32   stackLocation;
+    Int32   dataType;
+    string  reg;
+    string  data;
+};
+
 class Compiler {
 private:
     vector<Object*> ast;
@@ -13,11 +21,12 @@ private:
     stack<vector<Object*>> flattenStmt;
     stack<vector<string>> compileStmt;
     stack<map<string, Int32>> stackLoc;
+    stack<map<string, Object*>>  varBindings;
     vector<string> header;
     Register registerManager;
     
     Object* flatten(Object* expr);
-    Tuple(string, Int32) compile(Object* expr);
+    CompilerResult compile(Object* expr);
     
     string IntoRegister(string operand);
     void addFlatStmtToStack(Object* stmt);
@@ -31,7 +40,11 @@ private:
     void popStackLocationMap();
     void mapVarToStackLocation(string name);
     Int32 getStackLocationForVar(string name);
-    void PolymorphicPrint(Object* expr, Tuple(string, Int32) result);
+    void setVarStackLocation(string name, Int32 stackLocation);
+    void PolymorphicPrint(Object* expr, CompilerResult result);
+    void pushNewVarBindingEnv();
+    void popVarBindingEnv();
+    void bindVar(string name, Object*);
     
 public:
     Compiler();

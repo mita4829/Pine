@@ -1,0 +1,6 @@
+/* Arrays in loops */
+func main() -> Int {
+    for(let i:Int = 0; i < 3; i=i+1){
+        print([i*i]);
+    };
+};

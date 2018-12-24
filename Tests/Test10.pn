@@ -1,0 +1,6 @@
+/* Type inference */
+func main() -> Int {
+    let a = -1;
+    print(a*a);
+};
+

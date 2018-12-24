@@ -50,6 +50,9 @@ Object::Object(){
     memoryPool[memoryPoolID] = this;
     
     memoryPoolID += 1;
+    
+    context.primativeType = OBJECT;
+    context.arrayDepth    = 0;
 }
 Object::~Object(){LOG("Foundation:~Object");}
 Int32 Object::getType(){
@@ -402,7 +405,7 @@ string Var::getName(){
     return name;
 }
 
-Int32 Var::getType(){
+Int32 Var::getVarType(){
     return type;
 }
 
@@ -871,6 +874,104 @@ Object* While::clone(){
     return copy;
 }
 
+Array::Array(){
+    Type = ARRAY;
+}
+
+Array::Array(vector<Object*> _array, Int32 _length, Int32 _elementType) : Array() {
+    array = _array;
+    length = _length;
+    elementType = _elementType;
+}
+
+Array::~Array(){
+    for(auto& element : array){
+        deleteObject(element);
+    }
+}
+
+vector<Object*> Array::getArray(){
+    return array;
+}
+
+Int32 Array::getLength(){
+    return length;
+}
+
+Int32 Array::getElementType(){
+    return elementType;
+}
+
+void Array::print(){
+    cout << "Array([";
+    Object* element;
+    for(Int32 i = 0; i < array.size(); i++){
+        element = array[i];
+        element->print();
+        if(i != array.size() - 1){
+            cout << ", ";
+        }
+    }
+    cout << "])";
+}
+
+Object* Array::clone(){
+    vector<Object*> copyArray;
+    for(auto& element : array){
+        copyArray.push_back(element->clone());
+    }
+    Array* copy = new Array(copyArray, length, elementType);
+    
+    copy->context.arrayDepth    = context.arrayDepth;
+    copy->context.primativeType = context.primativeType;
+
+    return copy;
+}
+
+Index::Index(){
+    Type = INDEX;
+}
+
+Index::Index(string _arrayName, Object* _index, Int32 _elementType) : Index() {
+    arrayName = _arrayName;
+    index = _index;
+    elementType = _elementType;
+}
+
+Index::~Index(){
+    deleteObject(index);
+}
+
+Int32 Index::getElementType(){
+    return elementType;
+}
+
+string Index::getArrayName(){
+    return arrayName;
+}
+
+Object* Index::getIndex(){
+    return index;
+}
+
+void Index::setIndex(Object* val){
+    index = val;
+}
+
+void Index::print(){
+    cout << "Index(";
+    cout << arrayName << ",";
+    index->print();
+    cout << "," << getTypeName(elementType);
+    cout << ")";
+}
+
+Object* Index::clone(){
+    Index* copyIndex = new Index(arrayName,
+                                 index->clone(),
+                                 elementType);
+    return copyIndex;
+}
 
 string getTypeName(Int32 type){
     string translation[] = {
@@ -897,8 +998,11 @@ string getTypeName(Int32 type){
         "WHILE",
         "STACKLOC",
         "REG",
+        "INDEX"
     };
-    
+    if(isArray(type)){
+        return "ARRAY";
+    }
     return translation[type];
 }
 

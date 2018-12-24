@@ -108,6 +108,10 @@ Object* Parser::generic_parse(){
         next();
         return while_parse();
     }
+    else if(curr == "["){
+        next();
+        return array_parse();
+    }
     /*Atomic token*/
     else{
         Object* rtn = static_analysis();
@@ -132,24 +136,25 @@ Object* Parser::let_parse(){
     LOG("Parser:let_parse");
     string lval = curr;
     next(); // :
-    int type = OBJECT;
+    Int32 type = OBJECT;
+    Int32 arrayDepth = 0;
     if(curr == ":"){
         next();
-        type = translateType(curr);
+        type = translateType(curr, arrayDepth);
         next();
     }
     next(); // =
     Object* rval = generic_parse();
-    /*
-     Infer the type of if no type was given
-     */
-    if(type == OBJECT){
+    /* If a type was given check if the evaulated expression
+       matches the given type */
+    
+    // Infer the type of if no type was given
+    if(type == OBJECT) {
         type = rval->getType();
     }
-    /*
-     If rval isPrimative, add a binding for future
-     static analysis
-     */
+    
+    // If rval isPrimative, add a binding for future
+    // static analysis
     if(isPrimative(type)){
         bindVar(lval, rval);
     }
@@ -262,10 +267,11 @@ Object* Parser::function_parse(){
     next();
     /* TODO: Capture argv list */
     vector<Object*> argv;
+    Int32 arrayDepth = 0;
     
     next(); /* ) */
     next(); /* -> */
-    Int32 return_type = translateType(curr);
+    Int32 return_type = translateType(curr, arrayDepth);
     bindType(fname, return_type);
     next(); /* { */
     next();
@@ -279,6 +285,41 @@ Object* Parser::function_parse(){
     popTypeEnv();
     LOG("Parser::-function_parse");
     return new Function(fname, argv, new Seq(body), return_type);
+}
+
+Object* Parser::array_parse(){
+    LOG("Paser:array_parse");
+    vector<Object*> array;
+    const Int32 NONE = -1;
+    const bool NOT_END_OF_ARRAY = true;
+    Int32 elementType = NONE;
+    Int32 arrayDepth = 0;
+    
+    while(NOT_END_OF_ARRAY && curr != "]"){
+        Object* element = generic_parse();
+        array.push_back(element);
+        if(elementType == NONE){
+            elementType = element->getType();
+            if(elementType == ARRAY){
+                arrayDepth = element->context.arrayDepth;
+            }
+        }
+        else if((element->getType() == ARRAY &&
+                 arrayDepth != element->context.arrayDepth) ||
+                 elementType != element->getType()){
+    
+            RaisePineException("Arrays can only contant elements of same type.");
+        }
+        if(curr == "]"){
+            break;
+        }
+        next(); // ,
+    }
+    next(); // ]
+    Array* a = new Array(array, array.size(), elementType);
+    a->context.arrayDepth = arrayDepth + 1;
+    LOG("Paser:-array_parse");
+    return a;
 }
 
 Object* Parser::static_analysis(){
@@ -442,16 +483,27 @@ Object* Parser::atom_parse(){
     }
     /* Variable */
     else if(isVar(curr)){
-        result = new Var(curr, getTypeForVar(curr));
-        next();
-    }
-    /* Numeric value */
-    else if((result = is_numeric(curr))){
-        next();
+        if (peek() == "[") {
+            string arrayName   = curr;
+            Int32  elementType = getTypeForVar(arrayName);
+            next(); // [
+            next();
+            Object* index = static_analysis();
+            next(); // ]
+            result = new Index(arrayName, index, elementType);
+        }
+        else {
+            result = new Var(curr, getTypeForVar(curr));
+            next();
+        }
     }
     /* String */
     else if(curr[0] == '"'){
         result = new class String(curr);
+        next();
+    }
+    /* Numeric value */
+    else if((result = is_numeric(curr))){
         next();
     }
     /* Uncaught ERROR */
@@ -488,9 +540,16 @@ Object* Parser::is_numeric(string val){
     return nullptr;
 }
 
-int Parser::translateType(string type){
+int Parser::translateType(string type, Int32& depth){
     LOG("Parser:translateType");
     LOG("    type: "+type);
+    if(type == "["){
+        depth += 1;
+        next(); // Type
+        Int32 type = translateType(curr, depth);
+        next(); // ]
+        return type;
+    }
     if(type == "Int"){
         return Int;
     }else if(type == "Float"){

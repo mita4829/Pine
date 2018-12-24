@@ -38,7 +38,6 @@ Int32 main(Int32 argc, Char** argv){
         p.parse();
         
         vector<Object*> ast = p.getAST();
-        
         /* Compiler */
         vector<Object*> astCopy;
         for(auto& tree : ast){
