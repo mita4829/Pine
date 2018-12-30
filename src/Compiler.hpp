@@ -8,9 +8,12 @@
 struct CompilerResult {
     Int32   resultType;
     Int32   stackLocation;
-    Int32   dataType;
-    string  reg;
     string  data;
+};
+
+struct CompileBinding {
+    Int32   stackLocation;
+    Object* obj;
 };
 
 class Compiler {
@@ -20,8 +23,18 @@ private:
     
     stack<vector<Object*>> flattenStmt;
     stack<vector<string>> compileStmt;
-    stack<map<string, Int32>> stackLoc;
-    stack<map<string, Object*>>  varBindings;
+    stack<map<string, Int32>> stackLoc;         // +
+    stack<map<string, Object*>>  varBindings;   // +
+    
+    stack<map<string, CompileBinding>> bindings;
+    void pushNewBindings();
+    void popBindings();
+    void setBindings(string varName, CompileBinding binding);
+    void setBindings(string varName);
+    CompileBinding getBindings(string varName);
+    Int32 retrieveStackLocation(string varName);
+    
+    
     vector<string> header;
     Register registerManager;
     
@@ -34,17 +47,12 @@ private:
     vector<Object*> popFlatStack();
     void addCompileStmt(string stmt);
     void addFrontCompileStmt(string stmt);
+
+    void PolymorphicPrint(Object* expr, CompilerResult result);
+    
     void pushNewStackFrame();
     void popStackFrame();
-    void pushNewStackLocationMap();
-    void popStackLocationMap();
-    void mapVarToStackLocation(string name);
-    Int32 getStackLocationForVar(string name);
-    void setVarStackLocation(string name, Int32 stackLocation);
-    void PolymorphicPrint(Object* expr, CompilerResult result);
-    void pushNewVarBindingEnv();
-    void popVarBindingEnv();
-    void bindVar(string name, Object*);
+    
     
 public:
     Compiler();

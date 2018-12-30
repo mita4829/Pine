@@ -32,20 +32,52 @@ extern vector<string> Trace;
 #define ARCH32 4
 #define LOG(str) Trace.push_back(str)
 #define Printf(str) cout << str << endl
-#define tuple(T,V) make_tuple(T, V)
-#define Tuple(T,V) tuple<T, V>
 #define STR(x) to_string(x)
+#define DEBUG(x) debug(STR(x))
 #define VOID_ASM_OPERAND ""
+
+#define TAG_DEPTH(i, d) (((Int64)(d) << 32) | i)
+#define GET_DEPTH(i) ((UInt64)i) >> 32
+#define GET_LEGNTH(i) (0x00000000FFFFFFFF & i)
 
 #define GREEN   "\e[0;32m"
 #define RED     "\e[1;31m"
 #define YELLOW  "\e[1;33m"
 #define WHITE   "\e[0m"
 
-struct ObjectContext {
-    Int32 primativeType;
-    Int32 arrayDepth;
+struct TypeContext {
+    
+    // An Explicit Type represents the type on a node prior to
+    // type analysis. i.e. VAR("foo", INTEGER) is a node of explicit type VAR
+    Int32 explicitType;
+    
+    // An Implicit Type represents the type on a node post type analysis.
+    // i.e. VAR("foo", INTEGER) is a explicit type VAR node, but it implicitly
+    // an INTEGER type.
+    Int32 implicitType;
+    
+    // Array Depth is a positive integer to show the depth of a nested array.
+    // If the arrayDepth is zero, then the node is not an array.
+    // e.g.
+    //     42;     => Depth 0
+    //     [42]    => Depth 1
+    //     [[42]]  => Depth 2
+    //     ...
+    //
+    UInt32 arrayDepth;
+    
+    // Array Primative Element Type is the type of elements
+    // that the array holds after nesting
+    // e.g. [[[1,2], [2]]] is a 3D array, but the primative type
+    // is INTEGER
+    Int32 arrayPrimativeElementType;
+    
+    // stackLocation holds a integer that's a multiple of either 4 or 8
+    // to indicate the stack offset location for the given node at the compile
+    // phase
     Int32 stackLocation;
+    
+    string indexInstruction;
 };
 
 enum Expr {
@@ -73,10 +105,9 @@ enum Expr {
     STACKLOC,
     REG,
     INDEX,
-    ARRAY = (1 << 8)
+    ARRAY,
+    NIT
 };
-
-#define isArray(T) (ARRAY & T) == ARRAY
 
 enum OPERATION {
     ADD,
@@ -106,7 +137,7 @@ enum PINE_TYPES {
     String  = STRING
 };
 
-void    DEBUG(string);
+void    debug(string);
 void    RaisePineException(string);
 void    RaisePineWarning(string);
 string  AddressOf(void*);
@@ -118,13 +149,19 @@ protected:
     Int32  Type = OBJECT;
     UInt32 poolID;
 public:
-    ObjectContext context;
+    TypeContext typeContext;
     Object();
     virtual ~Object();
-    Int32  getType();
+    Int32  getExplicitType();
+    Int32  getImplicitType();
     UInt32 getMemoryPoolID();
     virtual void print();
     virtual Object* clone();
+};
+
+struct Bindings {
+    Int32   type;
+    Object* obj;
 };
 
 extern map<Int32, Object*> memoryPool;
@@ -151,12 +188,12 @@ public:
 
 class Integer : public Number {
 private:
-    Int32  val;
+    Int64  val;
 public:
     Integer();
-    Integer(Int32  val);
+    Integer(Int64  val);
     ~Integer();
-    Int32  getVal();
+    Int64  getVal();
     virtual void print();
     virtual Object* clone();
 };
@@ -201,13 +238,13 @@ class Let : public Object {
 private:
     string lval;
     Object* rval = nullptr;
-    Int32  expectedType;
+    TypeContext context;
 public:
     Let();
-    Let(string lval, Int32  expectedType, Object* rval);
+    Let(string lval, TypeContext context, Object* rval);
     ~Let();
     Object* getVal();
-    Int32  getExpectedType();
+    TypeContext getContext();
     string getName();
     virtual void print();
     virtual Object* clone();
@@ -404,6 +441,7 @@ private:
     vector<Object*> array;
     Int32 length;
     Int32 elementType;
+    Int32 offsetSize;
 public:
     Array();
     ~Array();
@@ -411,6 +449,7 @@ public:
     vector<Object*> getArray();
     Int32 getLength();
     Int32 getElementType();
+    Int32 getIndexOffsetSize();
     virtual void print();
     virtual Object* clone();
 };
@@ -439,4 +478,6 @@ T Safe_Cast(Object* obj) {
 
 string getTypeName(Int32 type);
 void deleteObject(Object* ptr);
+Int32 findPrimativeType(Object* obj);
+
 #endif

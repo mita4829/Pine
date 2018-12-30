@@ -3,8 +3,8 @@
 Object* Static::Fold(Object* ast){
     LOG("Static:Fold");
     LOG("    ast: 0x"+AddressOf((void*)ast));
-    LOG("   Type: "+STR(ast->getType()));
-    Int32 Type = ast->getType();
+    LOG("   Type: "+STR(ast->getExplicitType()));
+    Int32 Type = ast->getExplicitType();
     if(Type == INTEGER || Type == FLOAT || Type == DOUBLE || Type == STRING ||
        Type == BOOLEAN){
         return ast;
@@ -13,28 +13,32 @@ Object* Static::Fold(Object* ast){
         Var* v = Safe_Cast<Var*>(ast);
         string name = v->getName();
         if(isVar(name)){
-            Object* obj = varBindings->top()[name];
-            return obj->clone();
+            map<string, Bindings> bindingMap = bindings->top();
+            Bindings binding = bindingMap[name];
+            Object* obj = binding.obj;
+            if(isPrimative(obj->getExplicitType())){
+                return obj->clone();
+            }
         }
         return ast;
     }
     else if(Type == UNARY){
         Unary*  u = Safe_Cast<Unary*>(ast);
         Object* o = Fold(u->getVal());
-        if(isPrimative(o->getType())){
-            if(o->getType() == INTEGER){
+        if(isPrimative(o->getExplicitType())){
+            if(o->getExplicitType() == INTEGER){
                 Int32 neg = -(Safe_Cast<Integer*>(o)->getVal());
                 Integer* result = new Integer(neg);
                 deleteObject(ast);
                 return result;
             }
-            else if(o->getType() == FLOAT){
+            else if(o->getExplicitType() == FLOAT){
                 float neg = -(Safe_Cast<class Float*>(o)->getVal());
                 class Float* result = new class Float(neg);
                 deleteObject(ast);
                 return result;
             }
-            else if(o->getType() == Double){
+            else if(o->getExplicitType() == Double){
                 double neg = -(Safe_Cast<class Double*>(o)->getVal());
                 class Double* result = new class Double(neg);
                 deleteObject(ast);
@@ -59,24 +63,24 @@ Object* Static::Fold(Object* ast){
             b->setRight(nullptr);
         }
         
-        if(isPrimative(l->getType()) && isPrimative(r->getType()) &&
-           (l->getType() == r->getType())){
+        if(isPrimative(l->getExplicitType()) && isPrimative(r->getExplicitType()) &&
+           (l->getExplicitType() == r->getExplicitType())){
             if(b->getOperation() == ADD){
-                if(l->getType() == INTEGER){
+                if(l->getExplicitType() == INTEGER){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() +
                                 Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == FLOAT){
+                else if(l->getExplicitType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() +
                                 Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == DOUBLE){
+                else if(l->getExplicitType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() +
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
@@ -85,21 +89,21 @@ Object* Static::Fold(Object* ast){
                 }
             }
             else if(b->getOperation() == SUB){
-                if(l->getType() == INTEGER){
+                if(l->getExplicitType() == INTEGER){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() -
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == FLOAT){
+                else if(l->getExplicitType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() -
                     Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == DOUBLE){
+                else if(l->getExplicitType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() -
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
@@ -108,21 +112,21 @@ Object* Static::Fold(Object* ast){
                 }
             }
             else if(b->getOperation() == MUL){
-                if(l->getType() == INTEGER){
+                if(l->getExplicitType() == INTEGER){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() *
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == FLOAT){
+                else if(l->getExplicitType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() *
                     Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == DOUBLE){
+                else if(l->getExplicitType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() *
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
@@ -131,21 +135,21 @@ Object* Static::Fold(Object* ast){
                 }
             }
             else if(b->getOperation() == DIV){
-                if(l->getType() == INTEGER){
+                if(l->getExplicitType() == INTEGER){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() /
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == FLOAT){
+                else if(l->getExplicitType() == FLOAT){
                     float sum = Safe_Cast<class Float*>(l)->getVal() /
                     Safe_Cast<class Float*>(r)->getVal();
                     class Float* foldResult = new class Float(sum);
                     deleteObject(ast);
                     return foldResult;
                 }
-                else if(l->getType() == DOUBLE){
+                else if(l->getExplicitType() == DOUBLE){
                     double sum = Safe_Cast<class Double*>(l)->getVal() /
                     Safe_Cast<class Double*>(r)->getVal();
                     class Double* foldResult = new class Double(sum);
@@ -154,7 +158,7 @@ Object* Static::Fold(Object* ast){
                 }
             }
             else if(b->getOperation() == MOD){
-                if(l->getType() == INTEGER){
+                if(l->getExplicitType() == INTEGER){
                     Int32 sum = Safe_Cast<Integer*>(l)->getVal() %
                     Safe_Cast<Integer*>(r)->getVal();
                     Integer* foldResult = new Integer(sum);
@@ -182,9 +186,9 @@ Object* Static::Fold(Object* ast){
             c->setRight(nullptr);
         }
         
-        if(isPrimative(l->getType()) &&
-           isPrimative(r->getType()) &&
-           (l->getType() == r->getType()))
+        if(isPrimative(l->getExplicitType()) &&
+           isPrimative(r->getExplicitType()) &&
+           (l->getExplicitType() == r->getExplicitType()))
         {
             if(c->getOperation() == LT){
                 Int32 lt = Safe_Cast<Integer*>(l)->getVal() <
@@ -248,9 +252,9 @@ Object* Static::Fold(Object* ast){
             o->setRight(nullptr);
         }
         
-        if(isPrimative(l->getType()) &&
-           isPrimative(r->getType()) &&
-           (l->getType() == r->getType()))
+        if(isPrimative(l->getExplicitType()) &&
+           isPrimative(r->getExplicitType()) &&
+           (l->getExplicitType() == r->getExplicitType()))
         {
             if(o->getOperation() == OR){
                 Int32 res = Safe_Cast<Boolean*>(l)->getVal() ||
@@ -287,19 +291,19 @@ Object* Static::Fold(Object* ast){
     return ast;
 }
 
-Object* Static::ConstantFold(stack<map<string, Object*>>* _varBindings,
+Object* Static::ConstantFold(stack<map<string, Bindings>>* _bindings,
                              Object* ast){
-    varBindings = _varBindings;
+    bindings = _bindings;
     Object* foldResult = Fold(ast);
     return foldResult;
 }
 
 bool Static::isVar(string name){
-    if(varBindings == nullptr){
+    if(bindings == nullptr){
         return false;
     }
-    map<string, Object*>* s = &(varBindings->top());
-    if(s->find(name) != s->end()){
+    map<string, Bindings>* bindingMap = &(bindings->top());
+    if(bindingMap->find(name) != bindingMap->end()){
         return true;
     }
     return false;
@@ -307,16 +311,17 @@ bool Static::isVar(string name){
 
 void Static::printBindings(){
     LOG("Static:printBindings");
-    if(varBindings == nullptr){
+    if(bindings == nullptr){
         cout << "{\n}" << endl;
     }else{
-        map<string, Object*>* s = &(varBindings->top());
+        map<string, Bindings>* s = &(bindings->top());
         cout << "{" << endl;
         for(const auto& value : *s){
-            if (value.second != nullptr){
-                cout << "    " << value.first << ", ";
-                value.second->print();
-                cout << ": " << value.second;
+            if (value.second.obj != nullptr){
+                cout << "    " << value.first;
+                cout << ": (" << getTypeName(value.second.type) << ", ";
+                value.second.obj->print();
+                cout << ")";
                 cout << endl;
             }
         }

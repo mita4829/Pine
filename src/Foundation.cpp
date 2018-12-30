@@ -3,7 +3,7 @@
 vector<string> Trace;
 map<Int32, Object*> memoryPool;
 
-void DEBUG(string message){
+void debug(string message){
     LOG("Foundation:DEBUG");
     cout << GREEN << "DEBUG: " << WHITE << message << endl;
 }
@@ -41,6 +41,53 @@ bool isPrimative(Int32 Type){
             Type == BOOLEAN);
 }
 
+Int32 findPrimativeType(Object* obj){
+    LOG("Foundation:findPrimativeType");
+    if (isPrimative(obj->getExplicitType())) {
+        return obj->getExplicitType();
+    }
+    
+    Int32 type = NIT;
+    
+    if (obj->getExplicitType() == ARRAY) {
+        Array* a = Safe_Cast<Array*>(obj);
+        vector<Object*> rawArray = a->getArray();
+        if(a->getLength() >= 1){
+            return findPrimativeType(rawArray[1]);
+        }else{
+            return a->getElementType();
+        }
+    }
+    else if(obj->getExplicitType() == BINARY){
+        Binary*    b = Safe_Cast<Binary*>(obj);
+        Object* left = b->getLeft();
+        
+        return findPrimativeType(left);
+    }
+    else if(obj->getExplicitType() == VAR){
+        Var* v = Safe_Cast<Var*>(obj);
+        return v->typeContext.implicitType;
+    }
+
+    type = obj->getExplicitType();
+    
+    return type;
+}
+
+Int32 findCompressedArraySize(Object* element){
+    if (element == nullptr) {
+        return 0;
+    }
+    
+    if (element->getExplicitType() == ARRAY) {
+        Array* a = Safe_Cast<Array*>(element);
+        Int32  length = a->getLength();
+        return length * a->getIndexOffsetSize() + 1;
+    }
+    
+    return 1;
+}
+
 Object::Object(){
     static UInt32 memoryPoolID = 0;
     LOG("Foundation:Object");
@@ -51,13 +98,20 @@ Object::Object(){
     
     memoryPoolID += 1;
     
-    context.primativeType = OBJECT;
-    context.arrayDepth    = 0;
+    typeContext.explicitType  = OBJECT;
+    typeContext.implicitType  = NIT;
+    typeContext.arrayDepth    = 0;
 }
 Object::~Object(){LOG("Foundation:~Object");}
-Int32 Object::getType(){
-    return Type;
+
+Int32 Object::getExplicitType(){
+    return typeContext.explicitType;
 }
+
+Int32 Object::getImplicitType(){
+    return typeContext.implicitType;
+}
+
 UInt32 Object::getMemoryPoolID(){
     return poolID;
 }
@@ -71,7 +125,7 @@ Object* Object::clone(){
 
 Number::Number(){
     LOG("Foundation:Number");
-    Type = NUMBER;
+    typeContext.explicitType = NUMBER;
 }
 Number::~Number(){LOG("Foundation:~Number");}
 void Number::print(){
@@ -84,9 +138,9 @@ Object* Number::clone(){
 
 Boolean::Boolean(){
     LOG("Foundation:Boolean");
-    Type = BOOLEAN;
+    typeContext.explicitType = BOOLEAN;
 }
-Boolean::Boolean(bool _val){
+Boolean::Boolean(bool _val) : Boolean() {
     LOG("Foundation:Boolean");
     LOG("    _val: "+to_string(val));
     Type = BOOLEAN;
@@ -107,16 +161,15 @@ Object* Boolean::clone(){
 
 Integer::Integer(){
     LOG("Foundation:Integer");
-    Type = INTEGER;
+    typeContext.explicitType = INTEGER;
 }
-Integer::Integer(Int32 _val){
+Integer::Integer(Int64 _val) : Integer() {
     LOG("Foundation:Integer");
     LOG("    _val: "+to_string(_val));
-    Type = INTEGER;
     val = _val;
 }
 Integer::~Integer(){LOG("Foundation:~Integer");}
-Int32 Integer::getVal(){
+Int64 Integer::getVal(){
     return val;
 }
 void Integer::print(){
@@ -129,10 +182,9 @@ Object* Integer::clone(){
 }
 
 Float::Float(){
-    Type = FLOAT;
+    typeContext.explicitType = FLOAT;
 }
-Float::Float(float _val){
-    Type = FLOAT;
+Float::Float(float _val) : Float() {
     val = _val;
 }
 Float::~Float(){}
@@ -149,10 +201,9 @@ Object* Float::clone(){
 }
 
 Double::Double(){
-    Type = DOUBLE;
+    typeContext.explicitType = DOUBLE;
 }
-Double::Double(double _val){
-    Type = DOUBLE;
+Double::Double(double _val) : Double() {
     val = _val;
 }
 Double::~Double(){}
@@ -169,10 +220,9 @@ Object* Double::clone(){
 }
 
 String::String(){
-    Type = STRING;
+    typeContext.explicitType = STRING;
 }
-String::String(string _val){
-    Type = STRING;
+String::String(string _val) : String() {
     val = _val;
 }
 String::~String(){LOG("Foundation:~String");}
@@ -189,12 +239,11 @@ Object* String::clone(){
 }
 
 Let::Let(){
-    Type = LET;
+    typeContext.explicitType = LET;
 }
 
-Let::Let(string _lval, Int32 _expectedType, Object* _rval){
-    Type = LET;
-    expectedType = _expectedType;
+Let::Let(string _lval, TypeContext _context, Object* _rval) : Let() {
+    context = _context;
     lval = _lval;
     rval = _rval;
 }
@@ -210,8 +259,8 @@ Object* Let::getVal(){
     return rval;
 }
 
-Int32 Let::getExpectedType(){
-    return expectedType;
+TypeContext Let::getContext(){
+    return context;
 }
 
 string Let::getName(){
@@ -219,25 +268,25 @@ string Let::getName(){
 }
 
 void Let::print(){
-    cout << "Let(\"" << lval <<"\","<<expectedType<<",";
+    cout << "Let(\"" << lval <<"\","<<getTypeName(context.explicitType)<<",";
     rval->print();
     cout << ")";
 }
 
 Object* Let::clone(){
-    Let* copy = new Let(lval, expectedType, rval->clone());
+    Let* copy = new Let(lval, context, rval->clone());
     return copy;
 }
 
 Binary::Binary(){
-    Type = BINARY;
+    typeContext.explicitType = BINARY;
 }
 
-Binary::Binary(Int32 _operation, Object* l, Object* r){
-    Type = BINARY;
+Binary::Binary(Int32 _operation, Object* l, Object* r) : Binary() {
     operation = _operation;
     left = l;
     right = r;
+    typeContext.implicitType = findPrimativeType(left);
 }
 
 Binary::~Binary(){
@@ -308,13 +357,12 @@ Object* Binary::clone(){
 }
 
 Compare::Compare(){
-    Type = COMPARE;
+    typeContext.explicitType = COMPARE;
     left = nullptr;
     right = nullptr;
 }
 
-Compare::Compare(Int32 _operation, Object* l, Object* r){
-    Type = COMPARE;
+Compare::Compare(Int32 _operation, Object* l, Object* r) : Compare() {
     operation = _operation;
     left = l;
     right = r;
@@ -390,13 +438,13 @@ Object* Compare::clone(){
 }
 
 Var::Var(){
-    Type = VAR;
+    typeContext.explicitType = VAR;
 }
 
 Var::~Var(){}
 
-Var::Var(string _name, Int32 _type){
-    Type = VAR;
+Var::Var(string _name, Int32 _type) : Var() {
+    typeContext.implicitType = _type;
     name = _name;
     type = _type;
 }
@@ -419,12 +467,11 @@ Object* Var::clone(){
 }
 
 Print::Print(){
-    Type = PRINT;
+    typeContext.explicitType = PRINT;
     val = nullptr;
 }
 
-Print::Print(Object* _val){
-    Type = PRINT;
+Print::Print(Object* _val) : Print() {
     val = _val;
 }
 
@@ -452,7 +499,7 @@ Object* Print::clone(){
 }
 
 Function::Function(){
-    Type = FUNCTION;
+    typeContext.explicitType = FUNCTION;
     body = nullptr;
 }
 
@@ -470,8 +517,7 @@ Function::~Function(){
     }
 }
 
-Function::Function(string _name, vector<Object*> _argv, Seq* _body, Int32 _return_type){
-    Type = FUNCTION;
+Function::Function(string _name, vector<Object*> _argv, Seq* _body, Int32 _return_type) : Function() {
     name = _name;
     argv = _argv;
     body = _body;
@@ -514,7 +560,7 @@ Object* Function::clone(){
 }
 
 Unary::Unary(){
-    Type = UNARY;
+    typeContext.explicitType = UNARY;
     val = nullptr;
 }
 
@@ -525,8 +571,7 @@ Unary::~Unary(){
     }
 }
 
-Unary::Unary(Object* _val, Int32 _op){
-    Type = UNARY;
+Unary::Unary(Object* _val, Int32 _op) : Unary() {
     val = _val;
     operation = _op;
 }
@@ -548,7 +593,7 @@ Object* Unary::clone(){
 }
 
 Seq::Seq(){
-    Type = SEQ;
+    typeContext.explicitType = SEQ;
 }
 
 Seq::~Seq(){
@@ -559,8 +604,7 @@ Seq::~Seq(){
     }
 }
 
-Seq::Seq(vector<Object*> _seq){
-    Type = SEQ;
+Seq::Seq(vector<Object*> _seq) : Seq() {
     stmt = _seq;
 }
 
@@ -591,7 +635,7 @@ Object* Seq::clone(){
 }
 
 If::If(){
-    Type        = IF;
+    typeContext.explicitType = IF;
 }
 
 If::~If(){
@@ -649,7 +693,7 @@ Object* If::clone(){
 }
 
 Logical::Logical(){
-    Type = LOGICAL;
+    typeContext.explicitType = LOGICAL;
     left = nullptr;
     right = nullptr;
 }
@@ -709,7 +753,7 @@ Object* Logical::clone(){
 }
 
 Assign::Assign(){
-    Type = ASSIGN;
+    typeContext.explicitType = ASSIGN;
     name = nullptr;
     val = nullptr;
 }
@@ -759,7 +803,7 @@ Object* Assign::clone(){
 }
 
 For::For(){
-    Type = FOR;
+    typeContext.explicitType = FOR;
     declare = nullptr;
     condition = nullptr;
     incrementor = nullptr;
@@ -829,7 +873,7 @@ Object* For::clone(){
 }
 
 While::While(){
-    Type = WHILE;
+    typeContext.explicitType = WHILE;
     condition = nullptr;
     body = nullptr;
 }
@@ -875,13 +919,22 @@ Object* While::clone(){
 }
 
 Array::Array(){
-    Type = ARRAY;
+    typeContext.explicitType = ARRAY;
 }
 
 Array::Array(vector<Object*> _array, Int32 _length, Int32 _elementType) : Array() {
     array = _array;
     length = _length;
     elementType = _elementType;
+    if (length >= 1) {
+        typeContext.arrayPrimativeElementType = findPrimativeType(array[1]);
+    }
+    else
+    {
+        typeContext.arrayPrimativeElementType = OBJECT;
+    }
+    
+    offsetSize = findCompressedArraySize(length >= 1 ? array[1] : nullptr);
 }
 
 Array::~Array(){
@@ -902,10 +955,15 @@ Int32 Array::getElementType(){
     return elementType;
 }
 
+Int32 Array::getIndexOffsetSize(){
+    return offsetSize;
+}
+
 void Array::print(){
     cout << "Array([";
     Object* element;
-    for(Int32 i = 0; i < array.size(); i++){
+    
+    for(Int32 i = 1; i < array.size(); i++){
         element = array[i];
         element->print();
         if(i != array.size() - 1){
@@ -922,14 +980,14 @@ Object* Array::clone(){
     }
     Array* copy = new Array(copyArray, length, elementType);
     
-    copy->context.arrayDepth    = context.arrayDepth;
-    copy->context.primativeType = context.primativeType;
-
+    copy->typeContext.arrayDepth    = typeContext.arrayDepth;
+    copy->typeContext.arrayPrimativeElementType  = typeContext.arrayPrimativeElementType;
+    
     return copy;
 }
 
 Index::Index(){
-    Type = INDEX;
+    typeContext.explicitType = INDEX;
 }
 
 Index::Index(string _arrayName, Object* _index, Int32 _elementType) : Index() {
@@ -998,11 +1056,11 @@ string getTypeName(Int32 type){
         "WHILE",
         "STACKLOC",
         "REG",
-        "INDEX"
+        "INDEX",
+        "ARRAY",
+        "{No Implicit Type}"
     };
-    if(isArray(type)){
-        return "ARRAY";
-    }
+    
     return translation[type];
 }
 

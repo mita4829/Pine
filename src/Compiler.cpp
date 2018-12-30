@@ -10,8 +10,10 @@ string requestTmpVarName(){
 }
 
 Int32 align32ByteStack(Int32 varCount){
-    Int32 byteCount = varCount << 3; /* Multiple by 4: 4-byte for each var */
-    Int32 stackSize = ((byteCount >> 3) + 1) << 5;
+    const Int32 ALIGNMENT = 32;
+    Int32    byteCount = varCount * ARCH64;
+    Int32 next32Factor = (byteCount + ALIGNMENT) / ALIGNMENT;
+    Int32    stackSize = next32Factor * ALIGNMENT;
     return stackSize;
 }
 
@@ -45,13 +47,29 @@ Int32 requestShortID(){
  Returns the type of the expr. If it's a VAR type, cast
  to VAR can get its type.
  */
-Int32 getType(Object* expr){
-    LOG("Compiler:getType");
-    LOG("    expr: "+AddressOf(&expr));
-    Int32 Type = expr->getType();
+Int32 getImplicitType(Object* expr){
+    LOG("Compiler:getImplicitType");
+    LOG("    expr: 0x"+AddressOf(&expr));
+    if (expr == nullptr) {
+        return NIT;
+    }
+    Int32 Type = expr->getExplicitType();
     if(Type == VAR){
         Var* v = Safe_Cast<Var*>(expr);
         return v->getVarType();
+    }
+    else if(Type == INDEX){
+        Index* i = Safe_Cast<Index*>(expr);
+        return i->getElementType();
+    }
+    else if(Type == BINARY){
+        Binary* b = Safe_Cast<Binary*>(expr);
+        return b->typeContext.implicitType;
+    }
+    else if(Type == ARRAY){
+        Array* a = Safe_Cast<Array*>(expr);
+        vector<Object*> array = a->getArray();
+        return getImplicitType(array.size() > 1 ? array[1] : nullptr);
     }
     return Type;
 }
@@ -64,7 +82,8 @@ bool isValue(Int32 expr_type){
             expr_type == FLOAT   ||
             expr_type == DOUBLE  ||
             expr_type == BOOLEAN ||
-            expr_type == STRING);
+            expr_type == STRING  ||
+            expr_type == INDEX);
 }
 
 Compiler::Compiler(){
@@ -127,7 +146,7 @@ Object* Compiler::flatten(Object* expr){
     LOG("Compiler:flatten");
     LOG("    expr: 0x"+AddressOf(&expr));
     
-    Int32 Type = expr->getType();
+    Int32 Type = expr->getExplicitType();
     LOG("    Type: "+getTypeName(Type));
     /* Primatives */
     /*
@@ -145,16 +164,25 @@ Object* Compiler::flatten(Object* expr){
         Unary* u        = Safe_Cast<Unary*>(expr);
         Object* rval    = flatten(u->getVal());
         string lval     = requestTmpVarName();
-        Int32 newType   = getType(rval);
-        Let* l          = new Let(lval, newType, new Unary(rval, u->getOperation()));
+        
+        TypeContext context;
+        context.explicitType = rval->getExplicitType();
+        context.implicitType = getImplicitType(rval);;
+        
+        Let* l          = new Let(lval, context, new Unary(rval, u->getOperation()));
         addFlatStmtToStack(l);
-        return new Var(lval, newType);
+        return new Var(lval, context.implicitType);
     }
     /* Let */
     else if(Type == LET){
         Let* l          = Safe_Cast<Let*>(expr);
         Object* rval    = flatten(l->getVal());
-        Let* fl         = new Let(l->getName(), getType(rval), rval);
+        
+        TypeContext context;
+        context.explicitType = rval->getExplicitType();
+        context.implicitType = getImplicitType(rval);
+        
+        Let* fl         = new Let(l->getName(), context, rval);
         addFlatStmtToStack(fl);
         return fl;
     }
@@ -171,26 +199,28 @@ Object* Compiler::flatten(Object* expr){
         Binary* b        = Safe_Cast<Binary*>(expr);
         Object* fl       = flatten(b->getLeft());
         Object* fr       = flatten(b->getRight());
-        Int32 lt         = fl->getType();
-        Int32 rt         = fr->getType();
+        Int32 lt         = fl->getExplicitType();
+        Int32 rt         = fr->getExplicitType();
         Int32 operation  = b->getOperation();
         string name = requestTmpVarName();
-        while(isValue(fl->getType()) == false){
+        while(isValue(fl->getExplicitType()) == false){
             fl = flatten(fl);
         }
-        while(isValue(fr->getType()) == false){
+        while(isValue(fr->getExplicitType()) == false){
             fr = flatten(fr);
         }
         /*
          We let the type of the binary expr be the evaluated left
          operand.
          */
-        Int32 newType = getType(fl);
+        TypeContext context;
+        context.explicitType = fl->getExplicitType();
+        context.implicitType = getImplicitType(fl);
         
-        Let* l = new Let(name, newType, new Binary(operation, fl, fr));
+        Let* l = new Let(name, context, new Binary(operation, fl, fr));
         addFlatStmtToStack(l);
         
-        return new Var(name, newType);
+        return new Var(name, context.implicitType);
     }
     /* Function */
     else if(Type == FUNCTION){
@@ -245,18 +275,26 @@ Object* Compiler::flatten(Object* expr){
         Object* l        = flatten(c->getLeft());
         Object* r        = flatten(c->getRight());
         string name      = requestTmpVarName();
-        Let* fl          = new Let(name, BOOLEAN, new Compare(operation, l, r));
+        
+        TypeContext context;
+        context.explicitType = BOOLEAN;
+        
+        Let* fl          = new Let(name, context, new Compare(operation, l, r));
         addFlatStmtToStack(fl);
         return new Var(name, BOOLEAN);
     }
     /*Logical*/
     else if(Type == LOGICAL){
         Logical* l       = Safe_Cast<Logical*>(expr);
-        int operation    = l->getOperation();
+        Int32 operation  = l->getOperation();
         Object* lf       = flatten(l->getLeft());
         Object* rf       = flatten(l->getRight());
         string name      = requestTmpVarName();
-        Let* fl          = new Let(name, BOOLEAN, new Logical(operation, lf, rf));
+        
+        TypeContext context;
+        context.explicitType = BOOLEAN;
+        
+        Let* fl          = new Let(name, context, new Logical(operation, lf, rf));
         addFlatStmtToStack(fl);
         return new Var(name, BOOLEAN);
     }
@@ -288,8 +326,8 @@ Object* Compiler::flatten(Object* expr){
         }
         Array* flatArrayObj = new Array(flatArray, a->getLength(), a->getElementType());
         
-        flatArrayObj->context.arrayDepth = a->context.arrayDepth;
-        flatArrayObj->context.primativeType = a->context.primativeType;
+        flatArrayObj->typeContext.arrayDepth         = a->typeContext.arrayDepth;
+        flatArrayObj->typeContext.arrayPrimativeElementType = a->typeContext.arrayPrimativeElementType;
         
         return flatArrayObj;
     }
@@ -301,10 +339,7 @@ Object* Compiler::flatten(Object* expr){
         
         Index* flat = new Index(i->getArrayName(), flatIndex, i->getElementType());
         
-        Let* l = new Let(name, i->getElementType(), flat);
-        addFlatStmtToStack(l);
-        
-        return new Var(name, i->getElementType());
+        return flat;
     }
     RaisePineWarning("Flatten reached end of token matching ("+getTypeName(Type)+").");
     return nullptr;
@@ -314,13 +349,12 @@ CompilerResult Compiler::compile(Object* expr){
     LOG("Compiler:compile");
     LOG("    expr: 0x"+AddressOf(&expr));
     
-    Int32 Type = expr->getType();
+    Int32 Type = expr->getExplicitType();
     LOG("    Type: "+getTypeName(Type));
-    LOG("    Depth: "+STR(expr->context.arrayDepth));
     /* Integer */
     if(Type == INTEGER){
         Integer*       i = Safe_Cast<Integer*>(expr);
-        Int32          v = i->getVal();
+        Int64          v = i->getVal();
         string   operand = "$"+STR(v);
         
         CompilerResult result = EmptyResult;
@@ -354,16 +388,43 @@ CompilerResult Compiler::compile(Object* expr){
         CompilerResult result = EmptyResult;
         result.resultType = REG;
         /* TODO: Update reg manager to use other SIMD registers */
-        result.reg        = "%xmm0";
-        result.data       = result.reg;
+        result.data       = "%xmm0";
+        return result;
+    }
+    /* Double */
+    else if(Type == DOUBLE){
+        class Double* d = Safe_Cast<class Double*>(expr);
+        double val = d->getVal();
+    
+        union {
+            double d_bits;
+            Int64  i_bits;
+        };
+        
+        d_bits = val;
+        Int32 id = requestFloatID();
+        
+        string ins1 = "DOUBLE_"+STR(id)+":";
+        string ins2 = ".long " + STR(i_bits) + " #" + STR(d_bits);
+        string ins3 = ".align " + STR(ARCH32);
+        string ins4 = "movq DOUBLE_"+STR(id)+"(%rip), %xmm0";
+        header.push_back(ins1);
+        header.push_back(ins2);
+        header.push_back(ins3);
+        addCompileStmt(ins4);
+        
+        CompilerResult result = EmptyResult;
+        result.resultType = REG;
+        /* TODO: Update reg manager to use other SIMD registers */
+        result.data       = "%xmm0";
         return result;
     }
     /* Var */
     else if(Type == VAR){
         Var*            var = Safe_Cast<Var*>(expr);
-        Int32          type = var->getType();
+        Int32          type = var->getVarType();
         string         name = var->getName();
-        Int32 stackLocation = getStackLocationForVar(name);
+        Int32 stackLocation = retrieveStackLocation(name);
         string         ins1 = "-"+to_string(stackLocation)+"(%rbp)";
         
         CompilerResult result = EmptyResult;
@@ -418,8 +479,8 @@ CompilerResult Compiler::compile(Object* expr){
         string             regleft = IntoRegister(left.data);
         CompilerResult       right = compile(b->getRight());
         string            regright = IntoRegister(right.data);
-        Int32                ltype = getType(b->getLeft());
-        Int32                rtype = getType(b->getRight());
+        Int32                ltype = getImplicitType(b->getLeft());
+        Int32                rtype = getImplicitType(b->getRight());
         if(operation == ADD){
             if(ltype == INTEGER && rtype == INTEGER){
                 string stmt = "addq %"+regleft+", %"+regright;
@@ -532,20 +593,18 @@ CompilerResult Compiler::compile(Object* expr){
         CompilerResult result = EmptyResult;
         
         result.resultType     = REG;
-        result.reg            = regright;
-        result.data           = result.reg;
+        result.data           = regright;
         return result;
     }
     /* Function */
     else if(Type == FUNCTION){
         Function* f = Safe_Cast<Function*>(expr);
         pushNewStackFrame();
-        pushNewVarBindingEnv();
         /* TODO: Expand args here */
         Seq* body = f->getBody();
         compile(body);
         /* Create stack space dependent on variable count */
-        Int32 varCount  = stackLoc.top().size();
+        Int32 varCount  = bindings.top().size();
         Int32 stackSize = align32ByteStack(varCount);
         
         string ins1     = "addq $"+STR(stackSize)+", %rsp";
@@ -568,7 +627,6 @@ CompilerResult Compiler::compile(Object* expr){
         addFrontCompileStmt(ins7);
         addFrontCompileStmt(ins8);
         
-        popVarBindingEnv();
         popStackFrame();
         
         CompilerResult result = EmptyResult;
@@ -595,29 +653,33 @@ CompilerResult Compiler::compile(Object* expr){
         CompilerResult compiledResult = compile(rval);
         string                  reg = IntoRegister(compiledResult.data);
         Int32         stackLocation;
+        CompileBinding binding;
         
         CompilerResult result = EmptyResult;
         
-        if(rval->getType() == ARRAY){
+        if(rval->getExplicitType() == ARRAY){
             string   ins1 = "movq %"+reg+", "+compiledResult.data;
             addCompileStmt(ins1);
             string location = compiledResult.data;
-            setVarStackLocation(name, -compiledResult.stackLocation);
             
-            result.stackLocation  = compiledResult.stackLocation;
-            let->context.stackLocation = compiledResult.stackLocation;
+            binding.stackLocation = compiledResult.stackLocation;
+            
+            result.stackLocation           = compiledResult.stackLocation;
+            let->typeContext.stackLocation = compiledResult.stackLocation;
         }else{
-            mapVarToStackLocation(name);
-            stackLocation = getStackLocationForVar(name);
+            setBindings(name);
+            stackLocation = retrieveStackLocation(name);
+            binding.stackLocation = stackLocation;
+
             string   ins1 = "movq %"+reg+", -"+STR(stackLocation)+"(%rbp)";
             
-            result.stackLocation     = stackLocation;
-            let->context.stackLocation = stackLocation;
+            result.stackLocation           = stackLocation;
+            let->typeContext.stackLocation = stackLocation;
             
             addCompileStmt(ins1);
         }
-        
-        bindVar(name, rval);
+        binding.obj = rval;
+        setBindings(name, binding);
 
         registerManager.releaseRegister(reg);
         
@@ -630,7 +692,7 @@ CompilerResult Compiler::compile(Object* expr){
         Object*        rval = a->getVal();
         string          reg = IntoRegister(compile(rval).data);
         string      varName = Safe_Cast<Var*>(a->getVar())->getName();
-        Int32 stackLocation = getStackLocationForVar(varName);
+        Int32 stackLocation = retrieveStackLocation(varName);
         string stmt = "movq %"+reg+", -"+to_string(stackLocation)+"(%rbp)";
         addCompileStmt(stmt);
         
@@ -645,7 +707,6 @@ CompilerResult Compiler::compile(Object* expr){
         Print* p = Safe_Cast<Print*>(expr);
         CompilerResult compiledResult = compile(p->getVal());
         PolymorphicPrint(p->getVal(), compiledResult);
-        
         CompilerResult result = EmptyResult;
         
         result.resultType     = VOID;
@@ -661,7 +722,7 @@ CompilerResult Compiler::compile(Object* expr){
         string ins2 = "SHORT_"+to_string(requestShortID());
         for (const auto& stmt : ifStmt){
             Object* condition = get<0>(stmt);
-            Int32 conType = getType(condition);
+            Int32 conType = getImplicitType(condition);
             if(conType != BOOLEAN &&
                conType != COMPARE &&
                conType != LOGICAL)
@@ -700,8 +761,8 @@ CompilerResult Compiler::compile(Object* expr){
         Int32 operation = c->getOperation();
         CompilerResult left  = compile(c->getLeft());
         CompilerResult right = compile(c->getRight());
-        Int32 ltype = getType(c->getLeft());
-        Int32 rtype = getType(c->getRight());
+        Int32 ltype = getImplicitType(c->getLeft());
+        Int32 rtype = getImplicitType(c->getRight());
         if(ltype != rtype){
             RaisePineException("Comparison operation require like-type operands.\n"
                                "Recieved ("+getTypeName(ltype)+") and ("+getTypeName(rtype)+")");
@@ -736,11 +797,12 @@ CompilerResult Compiler::compile(Object* expr){
         addCompileStmt("movq $0, %"+regright);
         addCompileStmt(Short+":");
         
+        registerManager.releaseRegister(regleft);
+        
         CompilerResult result = EmptyResult;
         
         result.resultType = REG;
-        result.reg        = regright;
-        result.data       = result.reg;
+        result.data       = regright;
         return result;
     }
     /* For */
@@ -799,66 +861,75 @@ CompilerResult Compiler::compile(Object* expr){
     /* Array */
     else if(Type == ARRAY){
         Array* a = Safe_Cast<Array*>(expr);
-        vector<Object*> array = a->getArray();
+        vector<Object*>       array = a->getArray();
         static Int32 elementCounter = 0;
-        const Int32 NO_LOCATION = 0;
-        Int32 pointerToArray = NO_LOCATION;
-        Int32    elementType;
+        const  Int32    NO_LOCATION = -1;
+        Int32        pointerToArray = NO_LOCATION;
+        Int32           elementType = NIT;
+        Int32         stackLocation = NO_LOCATION;
         
         for(const auto& element : array){
             const string elementName = "ARRAY_ELEMENT_"+STR(elementCounter);
             elementCounter += 1;
+            
             CompilerResult compiledResult = compile(element);
-            string                    reg = IntoRegister(compiledResult.data);
-            mapVarToStackLocation(elementName);
-            Int32         stackLocation = getStackLocationForVar(elementName);
+            
+            if(element->getExplicitType() != ARRAY){
+                string    reg = IntoRegister(compiledResult.data);
+                setBindings(elementName);
+                stackLocation = retrieveStackLocation(elementName);
+                
+                string   ins1 = "movq %"+reg+", -"+STR(stackLocation)+"(%rbp)";
+                addCompileStmt(ins1);
+                registerManager.releaseRegister(reg);
+                
+            }else{
+                stackLocation = compiledResult.stackLocation;
+            }
             
             if(pointerToArray == NO_LOCATION){
                 /* Assign the first element of the array as the pointerToArray */
                 pointerToArray = stackLocation;
-                   elementType = element->getType();
             }
-            
-            string                 ins1 = "movq %"+reg+", -"+STR(stackLocation)+"(%rbp)";
-            addCompileStmt(ins1);
-            
-            registerManager.releaseRegister(reg);
         }
         
         CompilerResult result = EmptyResult;
         result.resultType     = ARRAY;
         result.stackLocation  = pointerToArray;
         result.data           = "-" + STR(pointerToArray) + "(%rbp)";
-        result.dataType       = elementType;
         
-        a->context.stackLocation = pointerToArray;
-        a->context.primativeType = elementType;
-        
+        a->typeContext.stackLocation = pointerToArray;
         return result;
     }
     /* Index */
     else if(Type == INDEX){
-        Index* i = Safe_Cast<Index*>(expr);
+        Index*                 i = Safe_Cast<Index*>(expr);
         string         arrayName = i->getArrayName();
-        Int32 arrayStackLocation = getStackLocationForVar(arrayName);
+        Array*                 a = Safe_Cast<Array*>(getBindings(arrayName).obj);
+        Int32        indexOffset = a->getIndexOffsetSize();
+        Int32 arrayStackLocation = retrieveStackLocation(arrayName);
         
         CompilerResult compiledResult = compile(i->getIndex());
         string                    reg = IntoRegister(compiledResult.data);
+        string                  toReg = registerManager.getRegister();
         
         string                   ins1 = "cltq";
         string                   ins2 = "negq %"+reg;
-        string                   ins3 = "movq -"+STR(arrayStackLocation)+"(%rbp, %"+reg+
-                                        ", "+STR(ARCH64)+"), %"+reg;
+        string                   ins3 = "imulq $"+STR(indexOffset)+", %"+reg;
+        string                   ins4 = "movq -"+STR(arrayStackLocation + ARCH64)+"(%rbp, %"+reg+
+                                        ", "+STR(ARCH64)+"), %"+toReg;
         
         addCompileStmt(ins1);
         addCompileStmt(ins2);
         addCompileStmt(ins3);
+        addCompileStmt(ins4);
         
-        CompilerResult result = EmptyResult;
-        result.resultType     = REG;
-        result.data           = reg;
-        result.reg            = result.data;
-        result.dataType       = i->getElementType();
+        CompilerResult result   = EmptyResult;
+        result.resultType       = REG;
+        result.data             = toReg;
+        
+        i->typeContext.indexInstruction = "-"+STR(arrayStackLocation + ARCH64)+"(%rbp, %"+reg+
+                                        ", "+STR(ARCH64)+")";
         return result;
     }
     RaisePineWarning("Compiler reached end of token matching. Type: "+getTypeName(Type));
@@ -930,7 +1001,7 @@ void Compiler::addFrontCompileStmt(string stmt){
 void Compiler::pushNewStackFrame(){
     vector<string> frame;
     compileStmt.push(frame);
-    pushNewStackLocationMap();
+    pushNewBindings();
 }
 
 void Compiler::popStackFrame(){
@@ -940,153 +1011,139 @@ void Compiler::popStackFrame(){
     last.insert(last.begin(), second_last.begin(), second_last.end());
     compileStmt.pop();
     compileStmt.push(last);
-    popStackLocationMap();
-}
-
-void Compiler::pushNewStackLocationMap(){
-    map<string, Int32> Slm;
-    stackLoc.push(Slm);
-}
-
-void Compiler::popStackLocationMap(){
-    stackLoc.pop();
-}
-
-Int32 Compiler::getStackLocationForVar(string name){
-    map<string, Int32>* frame = &(stackLoc.top());
-    return (*frame)[name];
-}
-
-void Compiler::mapVarToStackLocation(string name){
-    LOG("Compiler:mapVarToStackLocation");
-    LOG("   name: "+name);
-    map<string, Int32>* frame = &(stackLoc.top());
-    if(frame->count(name) > 0){
-        RaisePineException("Redeclarion of variable named: "+name);
-    }
-    /* Stack address are aligned by 0x8.
-     Give the Var the next location based
-     on the given size of the scope's variable
-     count.
-     */
-    Int32 loc = (frame->size() + 1) << 3;
-    (*frame)[name] = loc;
-    LOG("Compiler:-mapVarToStackLocation");
-}
-
-void Compiler::setVarStackLocation(string name, Int32 stackLocation){
-    map<string, Int32>* frame = &(stackLoc.top());
-    if(stackLocation < 0){
-        stackLocation = -stackLocation;
-    }
-    (*frame)[name] = stackLocation;
+    popBindings();
 }
 
 void Compiler::PolymorphicPrint(Object* expr, CompilerResult result){
     LOG("Compiler:PolymorphicPrint");
     LOG("    expr: 0x"+AddressOf(&expr));
     LOG("    result: ("+result.data+", "+getTypeName(result.resultType)+")");
-    Int32 EXPR_TYPE = expr->getType();
-    if(EXPR_TYPE == VAR){
-        Var*              v = Safe_Cast<Var*>(expr);
-        string variableName = v->getName();
-        Int32 stackLocation = getStackLocationForVar(variableName);
-        EXPR_TYPE = v->getType();
-        
-        /* Special case if the variable name is binded to an array */
-        if(EXPR_TYPE == ARRAY){
-            CompilerResult arrayResult = EmptyResult;
-            arrayResult.stackLocation = getStackLocationForVar(variableName);
-            arrayResult.resultType    = STACKLOC;
-            arrayResult.data          = "-" + STR(arrayResult.stackLocation) + "(%rbp)";
+    
+    Int32 explicitType = expr->getExplicitType();
+    LOG("    explicitType: "+getTypeName(explicitType));
+    switch (explicitType) {
+      case VAR:
+        {
+            Var*         v = Safe_Cast<Var*>(expr);
+            string varName = v->getName();
+            Int32 stackLocation = retrieveStackLocation(varName);
             
-            PolymorphicPrint(varBindings.top()[variableName],
-                             arrayResult);
-            return;
-        }
-        string val = "leaq -"+STR(stackLocation)+"(%rbp), %rsi";
-        addCompileStmt(val);
-        string type = "movq $"+STR(v->getVarType())+", %rdi";
-        string call = "callq _PinePrint";
-        addCompileStmt(type);
-        addCompileStmt(call);
-        
-    }else if(EXPR_TYPE == ARRAY){
-        Array* a = Safe_Cast<Array*>(expr);
-        /* Determine if the array is nested */
-        if(a->context.arrayDepth > 1){
-            string ins1 = "callq _PinePrintLeftBracket";
-            addCompileStmt(ins1);
-            vector<Object*> array = a->getArray();
-            for(Int32 i = 0; i < array.size(); i++){
-                Object* subArray = array[i];
-                /* We need to generate a new CompilerResult struct
-                   for each subArray to obtain its stacklocation
-                 */
-                CompilerResult arrayResult = EmptyResult;
-                arrayResult.resultType     = ARRAY;
-                arrayResult.stackLocation  = subArray->context.stackLocation;
-                arrayResult.data           = "-" + STR(arrayResult.stackLocation) + "(%rbp)";
+            if (isPrimative(v->getVarType())) {
+                string ins1 = "leaq -"+STR(stackLocation)+"(%rbp), %rsi";
+                string ins2 = "movq $"+STR(v->getVarType())+", %rdi";
+                string ins3 = "callq _PinePrint";
                 
-                PolymorphicPrint(subArray, arrayResult);
-                if(i != array.size() - 1){
-                    string comma = "callq _PinePrintComma";
-                    addCompileStmt(comma);
-                }
+                addCompileStmt(ins1);
+                addCompileStmt(ins2);
+                addCompileStmt(ins3);
             }
-            string ins2 = "callq _PinePrintRightBracket";
-            addCompileStmt(ins2);
-            return;
+            else {
+                CompileBinding binding = getBindings(varName);
+                Object*     bindedExpr = binding.obj;
+                PolymorphicPrint(bindedExpr, result);
+            }
         }
-        /* If it's a normal array, call the runtime */
-        string ins1 = "leaq "+result.data+", %rdx";
-        string ins2 = "movq $"+STR(a->getLength())+", %rdi";
-        string ins3 = "movq $"+STR(getType(a->getArray()[0]))+", %rsi";
-        string ins4 = "callq _PinePrintArray";
-        
-        addCompileStmt(ins1);
-        addCompileStmt(ins2);
-        addCompileStmt(ins3);
-        addCompileStmt(ins4);
-        
-    }else if(result.resultType == STACKLOC){
-        string val = "leaq "+result.data+", %rsi";
-        addCompileStmt(val);
-        string type = "movq $"+STR(EXPR_TYPE)+", %rdi";
-        string call = "callq _PinePrint";
-        addCompileStmt(type);
-        addCompileStmt(call);
-    }else if(EXPR_TYPE == INTEGER || result.dataType == INTEGER){
-        string ins1;
-        if (result.resultType == REG) {
-            ins1 = "movq %"+result.reg+", %rdi";
-        }
-        else {
-            ins1 = "movq "+result.data+", %rdi";
-        }
-        string ins2 = "callq _PinePrintInt";
-        addCompileStmt(ins1);
-        addCompileStmt(ins2);
-    }else if(EXPR_TYPE == STRING){
-        string ins1 = "movq %"+result.data+", %rdi";
-        addCompileStmt(ins1);
-        string ins2 = "callq _PinePrintString";
-        addCompileStmt(ins2);
-    }else if(EXPR_TYPE == BOOLEAN){
-        string ins1 = "movq "+result.data+", %rdi";
-        addCompileStmt(ins1);
-        string ins2 = "callq _PinePrintBoolean";
-        addCompileStmt(ins2);
-    }else if(EXPR_TYPE == FLOAT){
-        string ins1 = "movq "+result.data+", %rdi";
-        addCompileStmt(ins1);
-        string ins2 = "callq _PinePrintFloat";
-        addCompileStmt(ins2);
-    }
-    else{
-        RaisePineWarning("Print function caught unknown type ("+getTypeName(EXPR_TYPE)+")");
-    }
+        break;
+      case ARRAY:
+        {
+            Array* a = Safe_Cast<Array*>(expr);
+            vector<Object*> array = a->getArray();
+            Int32 arrayLength     = a->getLength();
+            
+            string ins1 = "leaq "+result.data+", %rsi";
+            string ins2;
+            
+            /* If the explicit type is still not primative, retrieve the implicit type */
+            Int32 primativeType = a->typeContext.arrayPrimativeElementType;
+            if (isPrimative(primativeType) != true) {
+                primativeType = getImplicitType(array.size() > 1 ? array[1] : nullptr);
+            }
+            ins2 = "movq $"+STR(primativeType)+", %rdi";
+            
+            string ins3 = "callq _PinePrintArray";
 
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+            addCompileStmt(ins3);
+        }
+        break;
+      case INTEGER:
+        {
+            string ins1 = "movq "+result.data+", %rdi";
+            string ins2 = "callq _PinePrintInt";
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+        }
+        break;
+      case STRING:
+        {
+            string ins1 = "movq %"+result.data+", %rdi";
+            string ins2 = "callq _PinePrintString";
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+            
+            registerManager.releaseRegister(result.data);
+        }
+        break;
+      case INDEX:
+        {
+            Index* i = Safe_Cast<Index*>(expr);
+            string arrayName = i->getArrayName();
+            Int32 elementType = i->getElementType();
+            
+            CompileBinding binding = getBindings(arrayName);
+            Array* a = Safe_Cast<Array*>(binding.obj);
+            
+            string ins1;
+            string ins2;
+            string ins3;
+            
+            if (isPrimative(elementType)) {
+                ins1 = "leaq "+i->typeContext.indexInstruction+", %rsi";
+                ins2 = "movq $"+STR(elementType)+", %rdi";
+                ins3 = "callq _PinePrint";
+                
+            }
+            else {
+                ins1 = "leaq "+i->typeContext.indexInstruction+", %rsi";
+                ins2 = "movq $"+STR(a->typeContext.arrayPrimativeElementType)+", %rdi";
+                ins3 = "callq _PinePrintArray";
+            }
+            
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+            addCompileStmt(ins3);
+
+        }
+        break;
+      case BOOLEAN:
+        {
+            string ins1 = "movq "+result.data+", %rdi";
+            string ins2 = "callq _PinePrintBoolean";
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+        }
+        break;
+      case FLOAT:
+        {
+            string ins1 = "movq "+result.data+", %rdi";
+            string ins2 = "callq _PinePrintFloat";
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+        }
+        break;
+      case DOUBLE:
+        {
+            string ins1 = "movq "+result.data+", %rdi";
+            string ins2 = "callq _PinePrintDouble";
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+        }
+        break;
+      default:
+        RaisePineWarning("Print function caught unknown type ("+getTypeName(explicitType)+")");
+        break;
+    }
     LOG("Compiler:-PolymorphicPrint");
 }
 
@@ -1120,17 +1177,49 @@ void Compiler::generateBinary(){
     LOG("Compiler:-generateBinary");
 }
 
-void Compiler::bindVar(string name, Object* obj){
-    map<string, Object*>* last = &(varBindings.top());
-    (*last)[name] = obj;
+// ---
+void Compiler::pushNewBindings(){
+    map<string, CompileBinding> m;
+    bindings.push(m);
 }
 
-void Compiler::pushNewVarBindingEnv(){
-    map<string, Object*> m;
-    varBindings.push(m);
+void Compiler::popBindings(){
+    map<string, CompileBinding>* last = &(bindings.top());
+    bindings.pop();
 }
 
-void Compiler::popVarBindingEnv(){
-    map<string, Object*>* last = &(varBindings.top());
-    varBindings.pop();
+void Compiler::setBindings(string varName, CompileBinding binding){
+    map<string, CompileBinding>* last = &(bindings.top());
+    (*last)[varName] = binding;
+}
+
+void Compiler::setBindings(string varName){
+    map<string, CompileBinding>* frame = &(bindings.top());
+    if(frame->count(varName) > 0){
+        RaisePineException("Redeclarion of variable named: "+varName);
+    }
+    /* Stack address are aligned by 0x8. Give the Var the next location based
+     on the given size of the scope's variable count.
+     */
+    Int32 stackLocation = (frame->size() + 1) << 3;
+    
+    CompileBinding binding;
+    binding.stackLocation = stackLocation;
+    binding.obj           = nullptr;
+    
+    setBindings(varName, binding);
+}
+
+CompileBinding Compiler::getBindings(string varName){
+    map<string, CompileBinding>* frame = &(bindings.top());
+    return (*frame)[varName];
+}
+
+Int32 Compiler::retrieveStackLocation(string varName){
+    map<string, CompileBinding>* frame = &(bindings.top());
+    if (frame->find(varName) == frame->end()) {
+        RaisePineException("Stack location could not be found for: "+varName);
+    }
+    CompileBinding binding = (*frame)[varName];
+    return binding.stackLocation;
 }
