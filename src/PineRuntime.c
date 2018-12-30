@@ -105,6 +105,9 @@ long long int* PinePrintArrayHelper(int type, int length, long long int* array){
         else if(type == DOUBLE){
             printf("%lf", (double)(*array));
         }
+        else {
+            printf("Unknown type: %d\n", type);
+        }
         array--;
         if (i != length - 1) {
             printf(", ");

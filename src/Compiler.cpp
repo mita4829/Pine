@@ -48,8 +48,11 @@ Int32 requestShortID(){
  to VAR can get its type.
  */
 Int32 getImplicitType(Object* expr){
-    LOG("Compiler:getType");
-    LOG("    expr: "+AddressOf(&expr));
+    LOG("Compiler:getImplicitType");
+    LOG("    expr: 0x"+AddressOf(&expr));
+    if (expr == nullptr) {
+        return NIT;
+    }
     Int32 Type = expr->getExplicitType();
     if(Type == VAR){
         Var* v = Safe_Cast<Var*>(expr);
@@ -58,6 +61,15 @@ Int32 getImplicitType(Object* expr){
     else if(Type == INDEX){
         Index* i = Safe_Cast<Index*>(expr);
         return i->getElementType();
+    }
+    else if(Type == BINARY){
+        Binary* b = Safe_Cast<Binary*>(expr);
+        return b->typeContext.implicitType;
+    }
+    else if(Type == ARRAY){
+        Array* a = Safe_Cast<Array*>(expr);
+        vector<Object*> array = a->getArray();
+        return getImplicitType(array.size() > 1 ? array[1] : nullptr);
     }
     return Type;
 }
@@ -70,7 +82,8 @@ bool isValue(Int32 expr_type){
             expr_type == FLOAT   ||
             expr_type == DOUBLE  ||
             expr_type == BOOLEAN ||
-            expr_type == STRING);
+            expr_type == STRING  ||
+            expr_type == INDEX);
 }
 
 Compiler::Compiler(){
@@ -1005,6 +1018,7 @@ void Compiler::PolymorphicPrint(Object* expr, CompilerResult result){
     LOG("    result: ("+result.data+", "+getTypeName(result.resultType)+")");
     
     Int32 explicitType = expr->getExplicitType();
+    LOG("    explicitType: "+getTypeName(explicitType));
     switch (explicitType) {
       case VAR:
         {
@@ -1039,6 +1053,9 @@ void Compiler::PolymorphicPrint(Object* expr, CompilerResult result){
             
             /* If the explicit type is still not primative, retrieve the implicit type */
             Int32 primativeType = a->typeContext.arrayPrimativeElementType;
+            if (isPrimative(primativeType) != true) {
+                primativeType = getImplicitType(array.size() > 1 ? array[1] : nullptr);
+            }
             ins2 = "movq $"+STR(primativeType)+", %rdi";
             
             string ins3 = "callq _PinePrintArray";
