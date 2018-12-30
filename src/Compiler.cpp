@@ -797,6 +797,8 @@ CompilerResult Compiler::compile(Object* expr){
         addCompileStmt("movq $0, %"+regright);
         addCompileStmt(Short+":");
         
+        registerManager.releaseRegister(regleft);
+        
         CompilerResult result = EmptyResult;
         
         result.resultType = REG;
