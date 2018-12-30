@@ -15,7 +15,7 @@
 
 class Static {
 private:
-    stack<map<string, Object*>>* varBindings = nullptr;
+    stack<map<string, Bindings>>* bindings = nullptr;
     Static() {};
     bool isVar(string name);
 public:
@@ -24,7 +24,7 @@ public:
         return instance;
     }
     
-    Object* ConstantFold(stack<map<string, Object*>>* varBindings,
+    Object* ConstantFold(stack<map<string, Bindings>>* bindings,
                         Object* ast);
     Object* Fold(Object* ast);
     void printBindings();

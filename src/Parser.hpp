@@ -5,17 +5,17 @@
 
 class Parser {
 private:
-    vector<Object*>     abstract_syntax_tree;
-    vector<vector<string>>            lexems;
-    vector<string>                      line;
-    stack<map<string, Object*>>  varBindings;
-    stack<map<string, Int32>>        typeEnv;
-    string                              curr;
+    vector<Object*> abstract_syntax_tree;
+    vector<vector<string>> lexems;
+    vector<string> line;
+    
+    stack<map<string, Bindings>> bindings;
+    string curr;
     /* volatileVar when greater than zero prevent variable names from being
        replaced with its value. This is useful when optimizating
        inside a loop to assume all variable to be volatile.
      */
-    Int32                       volatileVars = 0;
+    Int32 volatileVars = 0;
     Static analyzer = Static::getStaticAnalyzer();
     
     Int32 lineIndex;
@@ -57,8 +57,13 @@ public:
     void popVarBindingEnv();
     void bindType(string name, Int32 type);
     void bindVar(string name, Object*);
-    Int32 getTypeForVar(string name);
     
+    
+    void pushNewBindings();
+    void popBindings();
+    Bindings getBindings(string varName);
+    Int32 getTypeForVar(string name);
+    void setBindings(string, Bindings);
     vector<Object*> getAST();
 };
 

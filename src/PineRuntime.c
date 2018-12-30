@@ -24,12 +24,17 @@ enum Expr {
     WHILE,
     STACKLOC,
     REG,
-    ARRAY = (1 << 8)
+    INDEX,
+    ARRAY,
+    NIT
 };
+
+#define GET_DEPTH(i) ((unsigned long long int)i) >> 32
+#define GET_LEGNTH(i) (0x00000000FFFFFFFF & i)
 
 void PinePrint(int id, void* val){
     if(id == INTEGER){
-        printf("%d", *((int*)val));
+        printf("%lld", *((long long int*)val));
         return;
     }else if(id == FLOAT){
         printf("%f", *((float*)val));
@@ -74,54 +79,64 @@ void PinePrintFloat(float val){
     printf("%f", val);
 }
 
-void PinePrintArray(int length, int type, void* buffer){
-    printf("[");
-    if(type == INTEGER){
-        long long int* array = (long long int*)buffer;
-        for(int i = 0; i < length; i++){
-            printf("%lld", (*array));
-            if(i != length-1){
-                printf(", ");
-            }
-            array--;
+void PinePrintDouble(double val){
+    printf("%lf", val);
+}
+
+long long int* PinePrintArrayHelper(int type, int length, long long int* array){
+    
+    for (int i = 0; i < length; i++){
+        if (type == INTEGER){
+            printf("%lld", *array);
         }
-    }
-    else if(type == BOOLEAN){
-        long long int* array = (long long int*)buffer;
-        for(int i = 0; i < length; i++){
-            long long int boolValue = *array;
-            if(boolValue == 1){
+        else if (type == FLOAT){
+            printf("%f", (float)(*array));
+        }
+        else if (type == BOOLEAN){
+            if (*array != 0) {
                 printf("True");
             }else{
                 printf("False");
             }
-            if(i != length-1){
-                printf(", ");
-            }
-            array--;
+        }
+        else if (type == STRING){
+            printf("\"%s\"", (char*)(*array));
+        }
+        else if(type == DOUBLE){
+            printf("%lf", (double)(*array));
+        }
+        array--;
+        if (i != length - 1) {
+            printf(", ");
         }
     }
-    else if(type == FLOAT){
-        float* array = (float*)buffer;
-        for(int i = 0; i < length; i++){
-            printf("%f", *array);
-            if(i != length-1){
-                printf(", ");
-            }
-            array--;
-        }
-    }
-    printf("]");
+    
+    return array;
 }
 
-void PinePrintLeftBracket(){
+long long int* PinePrintArray(int type, void* buffer){
+    long long int* array = (long long int*)buffer;
+    unsigned long long int intLength = GET_LEGNTH(array[0]);
+    unsigned long long int depth = GET_DEPTH(array[0]);
+    
+    unsigned long long int length;
     printf("[");
-}
-
-void PinePrintRightBracket(){
+    if (depth > 1) {
+        array--;
+        
+        for (int i = 0; i < intLength; i++) {
+            array = PinePrintArray(type, array);
+            if (i != intLength - 1){
+                printf(", ");
+            }
+        }
+        
+    }
+    else {
+        array--;
+        array = PinePrintArrayHelper(type, intLength, array);
+    }
     printf("]");
+    return array;
 }
 
-void PinePrintComma(){
-    printf(", ");
-}

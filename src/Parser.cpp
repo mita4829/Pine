@@ -1,19 +1,7 @@
 #include "Parser.hpp"
 
-template <typename T, typename V>
-T absDiff(T x, V y) {
-    LOG("Parser:absDiff");
-    LOG("    x:"+to_string(x)+", y:"+to_string(y));
-    T result = x - y;
-    result = result < 0 ? -result : result;
-    LOG("Parser:-absDiff");
-    return result;
-}
-
 Parser::Parser(){
     LOG("Parser:Parser");
-    map<string, Int32> m; typeEnv.push(m);
-    map<string, Object*> s; varBindings.push(s);
 }
 
 Parser::~Parser(){
@@ -27,8 +15,8 @@ Parser::~Parser(){
     }
 
     LOG("Parser:    deleting varBindings");
-    while(varBindings.size() != 0){
-        popVarBindingEnv();
+    while(bindings.size() != 0){
+        popBindings();
     }
     LOG("Parser:-~Parser");
 }
@@ -134,34 +122,75 @@ Object* Parser::print_parse(){
 
 Object* Parser::let_parse(){
     LOG("Parser:let_parse");
+    
+    Bindings binding;
+    TypeContext context;
     string lval = curr;
-    next(); // :
-    Int32 type = OBJECT;
+    Int32 inferredType = OBJECT;
     Int32 arrayDepth = 0;
+    
+    next(); // :
+    
     if(curr == ":"){
         next();
-        type = translateType(curr, arrayDepth);
+        inferredType = translateType(curr, arrayDepth);
         next();
     }
     next(); // =
     Object* rval = generic_parse();
-    /* If a type was given check if the evaulated expression
-       matches the given type */
     
-    // Infer the type of if no type was given
-    if(type == OBJECT) {
-        type = rval->getType();
+    binding.type = rval->getExplicitType();
+    binding.obj  = rval;
+    setBindings(lval, binding);
+    
+    context.explicitType = rval->getExplicitType();
+    switch (context.explicitType) {
+        case VAR: {
+            Var* v = Safe_Cast<Var*>(rval);
+            context.implicitType = v->getVarType();
+            break;
+            }
+        case ARRAY: {
+            Array* a = Safe_Cast<Array*>(rval);
+            context.arrayPrimativeElementType = a->typeContext.arrayPrimativeElementType;
+            context.arrayDepth                = a->typeContext.arrayDepth;
+            break;
+            }
+        default:
+            break;
     }
     
-    // If rval isPrimative, add a binding for future
-    // static analysis
-    if(isPrimative(type)){
-        bindVar(lval, rval);
+    /* If a type was given, verify it matches the type rval has */
+    if(inferredType != OBJECT) {
+        /* If rval is an array, preform additional checks */
+        if((context.explicitType == ARRAY && arrayDepth == 0) ||
+            (context.explicitType != ARRAY && arrayDepth >= 1 &&
+                rval->typeContext.explicitType != INDEX)){
+            RaisePineException("Variable "+lval+" does not match its type definition.");
+        }
+        if(context.explicitType == ARRAY){
+            Array* a = Safe_Cast<Array*>(rval);
+            if(arrayDepth != a->typeContext.arrayDepth){
+                RaisePineException("Variable "+lval+" does not match its type definition "
+                                   "of correct level of nesting.");
+            }
+            if(inferredType != a->typeContext.arrayPrimativeElementType){
+                RaisePineException("Array "+lval+" does not match its type definition "
+                                   "for its elements.");
+            }
+        }
+        
+        if(context.explicitType != ARRAY &&
+           context.explicitType != INDEX &&
+           inferredType != context.explicitType){
+           RaisePineException("Variable "+lval+" defined of type "+getTypeName(inferredType)+
+                              " does not match what was assigned to it, which is of type "
+                              +getTypeName(context.explicitType));
+        }
     }
-    bindType(lval, type);
     
     LOG("Parser::-let_parse");
-    return new Let(lval, type, rval);
+    return new Let(lval, context, rval);
 }
 
 Object* Parser::if_parse(){
@@ -261,7 +290,9 @@ Object* Parser::while_parse(){
 
 Object* Parser::function_parse(){
     LOG("Paser::function_parse");
-    pushNewTypeEnv();
+    Bindings binding;
+    
+    pushNewBindings();
     string fname = curr;
     next(); /* ( */
     next();
@@ -271,8 +302,12 @@ Object* Parser::function_parse(){
     
     next(); /* ) */
     next(); /* -> */
-    Int32 return_type = translateType(curr, arrayDepth);
-    bindType(fname, return_type);
+    Int32 returnType = translateType(curr, arrayDepth);
+    
+    binding.type = returnType;
+    binding.obj  = nullptr;
+    setBindings(fname, binding);
+    
     next(); /* { */
     next();
     vector<Object*> body;
@@ -282,9 +317,9 @@ Object* Parser::function_parse(){
         next();
     }
     next(); /* } */
-    popTypeEnv();
+    popBindings();
     LOG("Parser::-function_parse");
-    return new Function(fname, argv, new Seq(body), return_type);
+    return new Function(fname, argv, new Seq(body), returnType);
 }
 
 Object* Parser::array_parse(){
@@ -293,22 +328,27 @@ Object* Parser::array_parse(){
     const Int32 NONE = -1;
     const bool NOT_END_OF_ARRAY = true;
     Int32 elementType = NONE;
+    Int32 primativeType = NONE;
     Int32 arrayDepth = 0;
+    Integer* arrayLengthHeader;
     
     while(NOT_END_OF_ARRAY && curr != "]"){
         Object* element = generic_parse();
         array.push_back(element);
         if(elementType == NONE){
-            elementType = element->getType();
+            elementType = element->getExplicitType();
             if(elementType == ARRAY){
-                arrayDepth = element->context.arrayDepth;
+                arrayDepth      = element->typeContext.arrayDepth;
+                primativeType   = element->typeContext.arrayPrimativeElementType;
+            }else{
+                primativeType = elementType;
             }
         }
-        else if((element->getType() == ARRAY &&
-                 arrayDepth != element->context.arrayDepth) ||
-                 elementType != element->getType()){
-    
-            RaisePineException("Arrays can only contant elements of same type.");
+        else if(element->getExplicitType() == ARRAY){
+            if ((arrayDepth != element->typeContext.arrayDepth) ||
+                 (primativeType != element->typeContext.arrayPrimativeElementType)){
+                RaisePineException("Arrays can only contant elements of same type.");
+            }
         }
         if(curr == "]"){
             break;
@@ -316,8 +356,21 @@ Object* Parser::array_parse(){
         next(); // ,
     }
     next(); // ]
-    Array* a = new Array(array, array.size(), elementType);
-    a->context.arrayDepth = arrayDepth + 1;
+    
+    /*  Add the header int to the front of the array
+        The upper 32-bit is tagged with the depth, and the
+        lower 32-bit is tagged with the length.
+    */
+    
+    Int64 header = TAG_DEPTH(array.size(), arrayDepth + 1);
+    
+    arrayLengthHeader = new Integer(header);
+    array.insert(array.begin(), arrayLengthHeader);
+    
+    Array* a = new Array(array, array.size() - 1, elementType);
+    a->typeContext.arrayDepth = arrayDepth + 1;
+    a->typeContext.arrayPrimativeElementType = primativeType;
+    
     LOG("Paser:-array_parse");
     return a;
 }
@@ -331,7 +384,7 @@ Object* Parser::static_analysis(){
      optimizations can be applied
      */
     
-    result = analyzer.ConstantFold(volatileVars != 0 ? nullptr : &varBindings, result);
+    result = analyzer.ConstantFold(volatileVars != 0 ? nullptr : &bindings, result);
 
     LOG("Parser::-static_analysis");
     return result;
@@ -485,7 +538,11 @@ Object* Parser::atom_parse(){
     else if(isVar(curr)){
         if (peek() == "[") {
             string arrayName   = curr;
-            Int32  elementType = getTypeForVar(arrayName);
+            
+            Bindings binding = getBindings(arrayName);
+            Array* a = Safe_Cast<Array*>(binding.obj);
+            
+            Int32  elementType = a->getElementType();
             next(); // [
             next();
             Object* index = static_analysis();
@@ -520,15 +577,16 @@ Object* Parser::is_numeric(string val){
     LOG("    val: "+val);
     try {
         Object* num = nullptr;
-        int i = stoi(val);
+        long long int i = stoi(val);
         float f = stof(val);
         double d = stod(val);
         num = new Integer(i);
-        if(f != i || ((val.find(".") != std::string::npos))){
+        if(f != i || (val.find(".") != std::string::npos)){
             deleteObject(num);
             num = new class Float(f);
         }
-        if(val.length() - val.rfind(".") > 6){
+        if(val.length() - val.rfind(".") > 6 &&
+           (val.find(".") != std::string::npos)){
             deleteObject(num);
             num = new class Double(d);
         }
@@ -560,57 +618,45 @@ int Parser::translateType(string type, Int32& depth){
         return String;
     }else if(type == "Bool"){
         return Bool;
+    }else if(type == "Void"){
+        return Void;
     }
     RaisePineException("Missing or invalid type definition "+type);
     return 0;
 }
 
-bool Parser::isVar(string name){
-    map<string, Int32>* s = &(typeEnv.top());
-    if(s->find(name) != s->end()){
+bool Parser::isVar(string varName){
+    map<string, Bindings>* last = &(bindings.top());
+    if(last->find(varName) != last->end()){
         return true;
     }
     return false;
 }
 
-void Parser::pushNewTypeEnv(){
-    map<string, Int32> m;
-    typeEnv.push(m);
+Int32 Parser::getTypeForVar(string name){
+    Bindings binding = getBindings(name);
+    return binding.type;
 }
 
-void Parser::pushNewVarBindingEnv(){
-    map<string, Object*> m;
-    varBindings.push(m);
+void Parser::pushNewBindings(){
+    map<string, Bindings> m;
+    bindings.push(m);
 }
 
-map<string, Int32> Parser::popTypeEnv(){
-    map<string, Int32> last = (typeEnv.top());
-    typeEnv.pop();
-    return last;
+void Parser::popBindings(){
+    map<string, Bindings>* last = &(bindings.top());
+    bindings.pop();
 }
 
-void Parser::popVarBindingEnv(){
-    map<string, Object*>* last = &(varBindings.top());
-    for(const auto& binding : (*last)){
-        deleteObject(binding.second);
+Bindings Parser::getBindings(string varName){
+    map<string, Bindings>* last = &(bindings.top());
+    if(last->find(varName) == last->end()){
+        RaisePineException("Undefined variable ("+varName+") in varBindings.");
     }
-    varBindings.pop();
+    return (*last)[varName];
 }
 
-void Parser::bindType(string name, int type){
-    map<string, Int32>* s = &(typeEnv.top());
-    (*s)[name] = type;
-}
-
-int Parser::getTypeForVar(string name){
-    map<string, Int32>* last = &(typeEnv.top());
-    if(last->find(name) == last->end()){
-        RaisePineException("Undefined variable type: "+name);
-    }
-    return (*last)[name];
-}
-
-void Parser::bindVar(string name, Object* obj){
-    map<string, Object*>* last = &(varBindings.top());
-    (*last)[name] = obj->clone();
+void Parser::setBindings(string varName, Bindings binding){
+    map<string, Bindings>* s = &(bindings.top());
+    (*s)[varName] = binding;
 }
