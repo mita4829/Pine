@@ -1,0 +1,40 @@
+/* Bitwise Compute */
+func main() -> Int {
+
+    let x:Int = 42;
+
+    /*  --------------------------------
+    Calculate !42
+    --------------------------------
+    */
+    let a:Int = x >> 31;
+    let b:Int = (~x + 1) >> 31;
+    let c:Int = a | b;
+    let d:Int = c & 0x1;
+    print(d ^ 0x1);print("\n");
+
+    /*  --------------------------------
+    Count the number of 1-bits in 42
+    --------------------------------
+    */
+    let first:Int = 0x11 | (0x11 << 8);
+    let second:Int = first | (first << 16);
+    let mask:Int = 0xF | (0xF << 8);
+    let count:Int = 0;
+    let sum:Int = second & x;
+    sum = (x >> 1 & second) + sum;
+    sum = (x >> 2 & second) + sum;
+    sum = (x >> 3 & second) + sum;
+    sum = sum + (sum >> 16);
+    sum = ((sum &  mask)  + (mask & (sum >> 4)));
+    count = (((sum >> 8) + sum) & 0x3F);
+    print(count);print("\n");
+
+    /*  --------------------------------
+    Calculate x ^ y using ~ and &
+    --------------------------------
+    */
+    let y:Int = 43;
+    let result:Int = (~(x&y)) & ~(~x & ~y);
+    print(result);print("\n");
+};

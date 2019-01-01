@@ -1,0 +1,15 @@
+/* Index nested array */
+func main() -> Int {
+    let a = [[[0,2,4],
+             [1,3,5]],
+             [[0,-2,-4],
+             [-1,-3,-5]]];
+    for (let i:Int = 0; i < 2; i=i+1){
+        for (let j:Int = 0; j < 2; j=j+1){
+            for (let k:Int = 0; k < 3; k=k+1){
+                print(a[i][j][k]); print("\n");
+            };
+        };
+    };
+};
+

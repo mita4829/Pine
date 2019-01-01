@@ -37,7 +37,7 @@ void PinePrint(int id, void* val){
         printf("%lld", *((long long int*)val));
         return;
     }else if(id == FLOAT){
-        printf("%f", *((float*)val));
+        printf("%lf", *((double*)val));
         return;
     }else if(id == DOUBLE){
         printf("%lf", *((double*)val));
@@ -75,8 +75,8 @@ void PinePrintBoolean(int val){
     }
 }
 
-void PinePrintFloat(float val){
-    printf("%f", val);
+void PinePrintFloat(double val){
+    printf("%lf", val);
 }
 
 void PinePrintDouble(double val){
@@ -90,7 +90,13 @@ long long int* PinePrintArrayHelper(int type, int length, long long int* array){
             printf("%lld", *array);
         }
         else if (type == FLOAT){
-            printf("%f", (float)(*array));
+            union Field {
+                double floatBit;
+                long long int intBits;
+            };
+            union Field field;
+            field.intBits = *array;
+            printf("%lf", field.floatBit);
         }
         else if (type == BOOLEAN){
             if (*array != 0) {

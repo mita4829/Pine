@@ -43,6 +43,8 @@ bool isPrimative(Int32 Type){
 
 Int32 findPrimativeType(Object* obj){
     LOG("Foundation:findPrimativeType");
+    LOG("    obj: 0x"+AddressOf(obj));
+    LOG("   type: "+getTypeName(obj->getExplicitType()));
     if (isPrimative(obj->getExplicitType())) {
         return obj->getExplicitType();
     }
@@ -70,7 +72,7 @@ Int32 findPrimativeType(Object* obj){
     }
 
     type = obj->getExplicitType();
-    
+    LOG("Foundation:-findPrimativeType");
     return type;
 }
 
@@ -926,6 +928,7 @@ Array::Array(vector<Object*> _array, Int32 _length, Int32 _elementType) : Array(
     array = _array;
     length = _length;
     elementType = _elementType;
+    
     if (length >= 1) {
         typeContext.arrayPrimativeElementType = findPrimativeType(array[1]);
     }
@@ -933,8 +936,15 @@ Array::Array(vector<Object*> _array, Int32 _length, Int32 _elementType) : Array(
     {
         typeContext.arrayPrimativeElementType = OBJECT;
     }
-    
+
     offsetSize = findCompressedArraySize(length >= 1 ? array[1] : nullptr);
+    
+    if (elementType == ARRAY) {
+        Array* a = Safe_Cast<Array*>(array[1]);
+        offsetTable = a->getOffsetTable();
+    }
+    
+    offsetTable.push_back(offsetSize);
 }
 
 Array::~Array(){
@@ -957,6 +967,10 @@ Int32 Array::getElementType(){
 
 Int32 Array::getIndexOffsetSize(){
     return offsetSize;
+}
+
+vector<Int32> Array::getOffsetTable(){
+    return offsetTable;
 }
 
 void Array::print(){
@@ -990,14 +1004,16 @@ Index::Index(){
     typeContext.explicitType = INDEX;
 }
 
-Index::Index(string _arrayName, Object* _index, Int32 _elementType) : Index() {
+Index::Index(string _arrayName, vector<Object*> _index, Int32 _elementType) : Index() {
     arrayName = _arrayName;
     index = _index;
     elementType = _elementType;
 }
 
 Index::~Index(){
-    deleteObject(index);
+    for (auto& i : index) {
+        deleteObject(i);
+    }
 }
 
 Int32 Index::getElementType(){
@@ -1008,25 +1024,34 @@ string Index::getArrayName(){
     return arrayName;
 }
 
-Object* Index::getIndex(){
+vector<Object*> Index::getIndex(){
     return index;
 }
 
-void Index::setIndex(Object* val){
-    index = val;
+void Index::setIndex(Object* i, Int32 location){
+    deleteObject(index[location]);
+    index[location] = i;
 }
 
 void Index::print(){
     cout << "Index(";
-    cout << arrayName << ",";
-    index->print();
-    cout << "," << getTypeName(elementType);
+    cout << arrayName << ",[";
+    for (const auto& i : index) {
+        i->print();
+        cout << ", ";
+    }
+    cout << "]";
+    cout << ", " << getTypeName(elementType);
     cout << ")";
 }
 
 Object* Index::clone(){
+    vector<Object*> copyIndices;
+    for (const auto& i : index){
+        copyIndices.push_back(i->clone());
+    }
     Index* copyIndex = new Index(arrayName,
-                                 index->clone(),
+                                 copyIndices,
                                  elementType);
     return copyIndex;
 }

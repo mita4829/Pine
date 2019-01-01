@@ -33,7 +33,7 @@ private:
     void setBindings(string varName);
     CompileBinding getBindings(string varName);
     Int32 retrieveStackLocation(string varName);
-    
+    Int32 getImplicitType(Object* expr);
     
     vector<string> header;
     Register registerManager;

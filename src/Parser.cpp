@@ -403,19 +403,52 @@ Object* Parser::logical_or(){
 
 Object* Parser::logical_and(){
     LOG("Paser::logical_and");
-    Object* result = logical_parse();
+    Object* result = bit_or();
     while(curr == "&&"){
         next();
-        result = new Logical(AND, result, logical_parse());
+        result = new Logical(AND, result, bit_or());
     }
     LOG("Parser::-logical_and");
+    return result;
+}
+
+Object* Parser::bit_or(){
+    LOG("Paser::bit_or");
+    Object* result = bit_xor();
+    while(curr == "|"){
+        next();
+        result = new Binary(BOR, result, bit_xor());
+    }
+    LOG("Parser::-bit_or");
+    return result;
+}
+
+Object* Parser::bit_xor(){
+    LOG("Paser::bit_xor");
+    Object* result = bit_and();
+    while(curr == "^"){
+        next();
+        result = new Binary(XOR, result, bit_and());
+    }
+    LOG("Parser::-bit_xor");
+    return result;
+}
+
+Object* Parser::bit_and(){
+    LOG("Paser::bit_and");
+    Object* result = logical_parse();
+    while(curr == "&"){
+        next();
+        result = new Binary(BAND, result, logical_parse());
+    }
+    LOG("Parser::-bit_and");
     return result;
 }
 
 /* Numerical tokens for expression [Stops on semi-colon] */
 Object* Parser::logical_parse(){
     LOG("Paser::logical_parse");
-    Object* result = union_parse();
+    Object* result = shift_parse();
     string logical[] = {"==", "!=", "=", "<=", ">=", "<", ">"};
     set<string> logical_tokens(begin(logical),
                         end(logical));
@@ -423,28 +456,57 @@ Object* Parser::logical_parse(){
     while(logical_tokens.find(curr) != logical_tokens.end()){
         if(curr == "=="){
             next();
-            result = new Compare(EQU, result, union_parse());
+            result = new Compare(EQU, result, shift_parse());
         }else if(curr == "!="){
             next();
-            result = new Compare(NEQ, result, union_parse());
+            result = new Compare(NEQ, result, shift_parse());
         }else if(curr == "="){
             next();
-            result = new Assign(result, generic_parse());
+            Object* rval = generic_parse();
+            /* Lval must be a Var or Index */
+            if (result->getExplicitType() == VAR) {
+                Var* v = Safe_Cast<Var*>(result);
+                Bindings oldBinding = getBindings(v->getName());
+                Bindings binding;
+                binding.type = oldBinding.type;
+                binding.obj  = rval;
+                setBindings(v->getName(), binding);
+            }
+            result = new Assign(result, rval);
         }else if(curr == "<"){
             next();
-            result = new Compare(LT, result, union_parse());
+            result = new Compare(LT, result, shift_parse());
         }else if(curr == "<="){
             next();
-            result = new Compare(LTE, result, union_parse());
+            result = new Compare(LTE, result, shift_parse());
         }else if(curr == ">="){
             next();
-            result = new Compare(GTE, result, union_parse());
+            result = new Compare(GTE, result, shift_parse());
         }else if(curr == ">"){
             next();
-            result = new Compare(GT, result, union_parse());
+            result = new Compare(GT, result, shift_parse());
         }
     }
     LOG("Parser::-logical_parse");
+    return result;
+}
+
+Object* Parser::shift_parse(){
+    LOG("Paser::shift_parse");
+    Object* result = union_parse();
+    string shift[] = {"<<", ">>"};
+    set<string> shift_tokens(begin(shift),
+                             end(shift));
+    while(shift_tokens.find(curr) != shift_tokens.end()){
+        if(curr == "<<"){
+            next();
+            result = new Binary(LS, result, union_parse());
+        }else if(curr == ">>"){
+            next();
+            result = new Binary(RS, result, union_parse());
+        }
+    }
+    LOG("Parser::-shift_parse");
     return result;
 }
 
@@ -537,17 +599,20 @@ Object* Parser::atom_parse(){
     /* Variable */
     else if(isVar(curr)){
         if (peek() == "[") {
-            string arrayName   = curr;
-            
+            vector<Object*> indexPoints;
+            string arrayName = curr;
             Bindings binding = getBindings(arrayName);
             Array* a = Safe_Cast<Array*>(binding.obj);
-            
-            Int32  elementType = a->getElementType();
+            Int32 elementType = a->getElementType();
             next(); // [
-            next();
-            Object* index = static_analysis();
-            next(); // ]
-            result = new Index(arrayName, index, elementType);
+            while (curr == "[") {
+                next();
+                Object* index = static_analysis();
+                next(); // ]
+                
+                indexPoints.push_back(index);
+            }
+            result = new Index(arrayName, indexPoints, elementType);
         }
         else {
             result = new Var(curr, getTypeForVar(curr));
@@ -577,20 +642,38 @@ Object* Parser::is_numeric(string val){
     LOG("    val: "+val);
     try {
         Object* num = nullptr;
-        long long int i = stoi(val);
         float f = stof(val);
-        double d = stod(val);
-        num = new Integer(i);
-        if(f != i || (val.find(".") != std::string::npos)){
-            deleteObject(num);
-            num = new class Float(f);
+        if (val.find(".") != string::npos) {
+            return new class Float(f);
         }
-        if(val.length() - val.rfind(".") > 6 &&
-           (val.find(".") != std::string::npos)){
-            deleteObject(num);
-            num = new class Double(d);
+        else {
+            /* Determine the base of the integer:
+                    0x => 16
+                    0d => 10
+                    0o => 8
+                    0b => 2
+               Note: By default, integers will be base 10
+            */
+            Int64 number;
+            Int32 base = 10;
+            if (val.length() >= 3 && val[0] == '0') {
+                if (val[1] == 'x') {
+                    base = 16;
+                }
+                else if (val[1] == 'o') {
+                    base = 8;
+                }
+                else if (val[1] == 'b') {
+                    base = 2;
+                }
+                else {
+                    base = 10;
+                }
+                val = val.substr(2);
+            }
+            number = stoll(val, nullptr, base);
+            return new Integer(number);
         }
-        return num;
     } catch (...) { /* Catch all exceptions for non-numeric value */
         LOG("Parser:is_numericAssert");
         return nullptr;
