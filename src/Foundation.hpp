@@ -126,6 +126,11 @@ enum OPERATION {
     IVT,
     AND,
     OR,
+    BAND,
+    BOR,
+    XOR,
+    LS,
+    RS
 };
 
 enum PINE_TYPES {
@@ -439,6 +444,7 @@ public:
 class Array : public Object {
 private:
     vector<Object*> array;
+    vector<Int32> offsetTable;
     Int32 length;
     Int32 elementType;
     Int32 offsetSize;
@@ -450,6 +456,7 @@ public:
     Int32 getLength();
     Int32 getElementType();
     Int32 getIndexOffsetSize();
+    vector<Int32> getOffsetTable();
     virtual void print();
     virtual Object* clone();
 };
@@ -457,16 +464,16 @@ public:
 class Index : public Object {
 private:
     string  arrayName;
-    Object* index;
+    vector<Object*> index;
     Int32   elementType;
 public:
     Index();
-    Index(string arrayName, Object* index, Int32 elementType);
+    Index(string arrayName, vector<Object*> index, Int32 elementType);
     ~Index();
     Int32 getElementType();
     string getArrayName();
-    Object* getIndex();
-    void setIndex(Object* val);
+    vector<Object*> getIndex();
+    void setIndex(Object* index, Int32 location);
     virtual void print();
     virtual Object* clone();
 };

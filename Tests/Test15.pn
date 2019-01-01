@@ -1,0 +1,11 @@
+/* Indexing nested arrays */
+func main() -> Void {
+    let a =  [[0,2,4],
+              [3,6,9],
+              [5,10,15]];
+    for (let i:Int = 0; i < 3; i=i+1){
+        print(a[i]);
+        print("\n");
+    };
+};
+

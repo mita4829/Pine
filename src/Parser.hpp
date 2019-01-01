@@ -41,9 +41,13 @@ public:
     Object* function_parse();
     Object* array_parse();
     Object* static_analysis();
+    Object* bit_or();
+    Object* bit_and();
+    Object* bit_xor();
     Object* logical_or();
     Object* logical_and();
     Object* logical_parse();
+    Object* shift_parse();
     Object* union_parse();
     Object* intersect_parse();
     Object* nots_parse();

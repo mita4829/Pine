@@ -26,23 +26,53 @@ Object* Static::Fold(Object* ast){
         Unary*  u = Safe_Cast<Unary*>(ast);
         Object* o = Fold(u->getVal());
         if(isPrimative(o->getExplicitType())){
-            if(o->getExplicitType() == INTEGER){
-                Int32 neg = -(Safe_Cast<Integer*>(o)->getVal());
-                Integer* result = new Integer(neg);
-                deleteObject(ast);
-                return result;
+            if (u->getOperation() == NEG) {
+                if(o->getExplicitType() == INTEGER){
+                    Int32 neg = -(Safe_Cast<Integer*>(o)->getVal());
+                    Integer* result = new Integer(neg);
+                    deleteObject(ast);
+                    return result;
+                }
+                else if(o->getExplicitType() == FLOAT){
+                    float neg = -(Safe_Cast<class Float*>(o)->getVal());
+                    class Float* result = new class Float(neg);
+                    deleteObject(ast);
+                    return result;
+                }
+                else if(o->getExplicitType() == Double){
+                    double neg = -(Safe_Cast<class Double*>(o)->getVal());
+                    class Double* result = new class Double(neg);
+                    deleteObject(ast);
+                    return result;
+                }
             }
-            else if(o->getExplicitType() == FLOAT){
-                float neg = -(Safe_Cast<class Float*>(o)->getVal());
-                class Float* result = new class Float(neg);
-                deleteObject(ast);
-                return result;
+            else if (u->getOperation() == NOT) {
+                if(o->getExplicitType() == INTEGER){
+                    Int32 neg = !(Safe_Cast<Integer*>(o)->getVal());
+                    Integer* result = new Integer(neg);
+                    deleteObject(ast);
+                    return result;
+                }
+                else if(o->getExplicitType() == FLOAT){
+                    float neg = !(Safe_Cast<class Float*>(o)->getVal());
+                    class Float* result = new class Float(neg);
+                    deleteObject(ast);
+                    return result;
+                }
+                else if(o->getExplicitType() == Double){
+                    double neg = !(Safe_Cast<class Double*>(o)->getVal());
+                    class Double* result = new class Double(neg);
+                    deleteObject(ast);
+                    return result;
+                }
             }
-            else if(o->getExplicitType() == Double){
-                double neg = -(Safe_Cast<class Double*>(o)->getVal());
-                class Double* result = new class Double(neg);
-                deleteObject(ast);
-                return result;
+            else if (u->getOperation() == IVT) {
+                if(o->getExplicitType() == INTEGER){
+                    Int32 neg = ~(Safe_Cast<Integer*>(o)->getVal());
+                    Integer* result = new Integer(neg);
+                    deleteObject(ast);
+                    return result;
+                }
             }
         }
     }
@@ -166,6 +196,51 @@ Object* Static::Fold(Object* ast){
                     return foldResult;
                 }
             }
+            else if(b->getOperation() == BAND){
+                if(l->getExplicitType() == INTEGER){
+                    Int32 sum = Safe_Cast<Integer*>(l)->getVal() &
+                    Safe_Cast<Integer*>(r)->getVal();
+                    Integer* foldResult = new Integer(sum);
+                    deleteObject(ast);
+                    return foldResult;
+                }
+            }
+            else if(b->getOperation() == BOR){
+                if(l->getExplicitType() == INTEGER){
+                    Int32 sum = Safe_Cast<Integer*>(l)->getVal() |
+                    Safe_Cast<Integer*>(r)->getVal();
+                    Integer* foldResult = new Integer(sum);
+                    deleteObject(ast);
+                    return foldResult;
+                }
+            }
+            else if(b->getOperation() == XOR){
+                if(l->getExplicitType() == INTEGER){
+                    Int32 sum = Safe_Cast<Integer*>(l)->getVal() ^
+                    Safe_Cast<Integer*>(r)->getVal();
+                    Integer* foldResult = new Integer(sum);
+                    deleteObject(ast);
+                    return foldResult;
+                }
+            }
+            else if(b->getOperation() == LS){
+                if(l->getExplicitType() == INTEGER){
+                    Int32 sum = Safe_Cast<Integer*>(l)->getVal() <<
+                    Safe_Cast<Integer*>(r)->getVal();
+                    Integer* foldResult = new Integer(sum);
+                    deleteObject(ast);
+                    return foldResult;
+                }
+            }
+            else if(b->getOperation() == RS){
+                if(l->getExplicitType() == INTEGER){
+                    Int32 sum = Safe_Cast<Integer*>(l)->getVal() >>
+                    Safe_Cast<Integer*>(r)->getVal();
+                    Integer* foldResult = new Integer(sum);
+                    deleteObject(ast);
+                    return foldResult;
+                }
+            }
         }
         return ast;
     }
@@ -277,15 +352,19 @@ Object* Static::Fold(Object* ast){
     }
     else if(Type == INDEX){
         Index*      index = Safe_Cast<Index*>(ast);
-        Object* foldIndex = Fold(index->getIndex());
+        vector<Object*> indices = index->getIndex();
+        vector<Object*> foldIndices;
+        for(Int32 i = 0; i < indices.size(); i++){
+            Object* nthIndex = indices[i];
+            Object* foldResult = Fold(nthIndex);
+            if (foldResult != nthIndex) {
+                index->setIndex(foldResult, i);
+            }
+        }
         string arrayName  = index->getArrayName();
         Int32  elementType= index->getElementType();
         
-        if (index->getIndex() != foldIndex) {
-            deleteObject(ast);
-            return new Index(arrayName, foldIndex, elementType);
-        }
-        return ast;
+        return index;
     }
     RaisePineWarning("Static analysis did not catch case for: "+getTypeName(Type));
     return ast;

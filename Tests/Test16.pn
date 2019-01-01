@@ -1,0 +1,11 @@
+/* Bitwise Compute */
+func main() -> Int {
+    /* Calculate !42 */
+    let x:Int = 42;
+
+    let a:Int = x >> 31;
+    let b:Int = (~x + 1) >> 31;
+    let c:Int = a | b;
+    let d:Int = c & 0x1;
+    print(d ^ 0x1);
+};

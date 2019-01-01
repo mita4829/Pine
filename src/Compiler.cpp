@@ -47,7 +47,7 @@ Int32 requestShortID(){
  Returns the type of the expr. If it's a VAR type, cast
  to VAR can get its type.
  */
-Int32 getImplicitType(Object* expr){
+Int32 Compiler::getImplicitType(Object* expr){
     LOG("Compiler:getImplicitType");
     LOG("    expr: 0x"+AddressOf(&expr));
     if (expr == nullptr) {
@@ -60,7 +60,12 @@ Int32 getImplicitType(Object* expr){
     }
     else if(Type == INDEX){
         Index* i = Safe_Cast<Index*>(expr);
-        return i->getElementType();
+        if (isPrimative(i->getElementType())) {
+            return i->getElementType();
+        }
+        string arrayName = i->getArrayName();
+        CompileBinding binding = getBindings(arrayName);
+        return getImplicitType(binding.obj);
     }
     else if(Type == BINARY){
         Binary* b = Safe_Cast<Binary*>(expr);
@@ -334,10 +339,14 @@ Object* Compiler::flatten(Object* expr){
     /* Index */
     else if(Type == INDEX){
         Index* i = Safe_Cast<Index*>(expr);
-        Object* flatIndex = flatten(i->getIndex());
+        vector<Object*> indices = i->getIndex();
+        vector<Object*> flatIndices;
+        for (const auto& i : indices) {
+            flatIndices.push_back(flatten(i));
+        }
         string name = requestTmpVarName();
         
-        Index* flat = new Index(i->getArrayName(), flatIndex, i->getElementType());
+        Index* flat = new Index(i->getArrayName(), flatIndices, i->getElementType());
         
         return flat;
     }
@@ -369,20 +378,18 @@ CompilerResult Compiler::compile(Object* expr){
         float val = f->getVal();
     
         union {
-            float f_bits;
-            Int32 i_bits;
+            double f_bits;
+            Int64 i_bits;
         };
         
-        f_bits = val;
+        f_bits = (double)val;
         Int32 id = requestFloatID();
         
         string ins1 = "FLOAT_"+STR(id)+":";
-        string ins2 = ".long " + STR(i_bits) + " #" + STR(f_bits);
-        string ins3 = ".align " + STR(ARCH32);
+        string ins2 = ".quad " + STR(i_bits) + " #" + STR(f_bits);
         string ins4 = "movq FLOAT_"+STR(id)+"(%rip), %xmm0";
         header.push_back(ins1);
         header.push_back(ins2);
-        header.push_back(ins3);
         addCompileStmt(ins4);
         
         CompilerResult result = EmptyResult;
@@ -405,7 +412,7 @@ CompilerResult Compiler::compile(Object* expr){
         Int32 id = requestFloatID();
         
         string ins1 = "DOUBLE_"+STR(id)+":";
-        string ins2 = ".long " + STR(i_bits) + " #" + STR(d_bits);
+        string ins2 = ".quad " + STR(i_bits) + " #" + STR(d_bits);
         string ins3 = ".align " + STR(ARCH32);
         string ins4 = "movq DOUBLE_"+STR(id)+"(%rip), %xmm0";
         header.push_back(ins1);
@@ -585,11 +592,87 @@ CompilerResult Compiler::compile(Object* expr){
                 RaisePineException("Modulo is not defined for non-integer operands.");
             }
         }
+        else if(operation == BAND){
+            if(ltype == INTEGER && rtype == INTEGER){
+                string ins1 = "movq %"+regleft+", %rcx";
+                string ins2 = "movq %"+regright+", %rax";
+                string ins3 = "andq %rcx, %rax";
+                string ins4 = "movq %rax, %"+regright;
+                
+                addCompileStmt(ins1);
+                addCompileStmt(ins2);
+                addCompileStmt(ins3);
+                addCompileStmt(ins4);
+            }else{
+                RaisePineException("Bit-wise And is not defined for non-integer operands.");
+            }
+        }
+        else if(operation == BOR){
+            if(ltype == INTEGER && rtype == INTEGER){
+                string ins1 = "movq %"+regleft+", %rcx";
+                string ins2 = "movq %"+regright+", %rax";
+                string ins3 = "orq %rcx, %rax";
+                string ins4 = "movq %rax, %"+regright;
+                
+                addCompileStmt(ins1);
+                addCompileStmt(ins2);
+                addCompileStmt(ins3);
+                addCompileStmt(ins4);
+            }else{
+                RaisePineException("Bit-wise Or is not defined for non-integer operands.");
+            }
+        }
+        else if(operation == XOR){
+            if(ltype == INTEGER && rtype == INTEGER){
+                string ins1 = "movq %"+regleft+", %rcx";
+                string ins2 = "movq %"+regright+", %rax";
+                string ins3 = "xorq %rcx, %rax";
+                string ins4 = "movq %rax, %"+regright;
+                
+                addCompileStmt(ins1);
+                addCompileStmt(ins2);
+                addCompileStmt(ins3);
+                addCompileStmt(ins4);
+            }else{
+                RaisePineException("Bit-wise Xor is not defined for non-integer operands.");
+            }
+        }
+        else if(operation == LS){
+            if(ltype == INTEGER && rtype == INTEGER){
+                string ins1 = "movq %"+regright+", %rcx";
+                string ins2 = "movq %"+regleft+", %rax";
+                string ins3 = "shlq %cl, %rax";
+                string ins4 = "movq %rax, %"+regright;
+                
+                addCompileStmt(ins1);
+                addCompileStmt(ins2);
+                addCompileStmt(ins3);
+                addCompileStmt(ins4);
+            }else{
+                RaisePineException("Left shift is not defined for non-integer operands.");
+            }
+        }
+        else if(operation == RS){
+            if(ltype == INTEGER && rtype == INTEGER){
+                string ins1 = "movq %"+regright+", %rcx";
+                string ins2 = "movq %"+regleft+", %rax";
+                string ins3 = "sarq %cl, %rax";
+                string ins4 = "movq %rax, %"+regright;
+                
+                addCompileStmt(ins1);
+                addCompileStmt(ins2);
+                addCompileStmt(ins3);
+                addCompileStmt(ins4);
+            }else{
+                RaisePineException("Right shift is not defined for non-integer operands.");
+            }
+        }
         else{
             RaisePineWarning("Uncaught Binary operation in compile "+STR(operation));
         }
         registerManager.releaseRegister(regleft);
         
+        b->typeContext.implicitType = ltype;
         CompilerResult result = EmptyResult;
         
         result.resultType     = REG;
@@ -908,28 +991,40 @@ CompilerResult Compiler::compile(Object* expr){
         Array*                 a = Safe_Cast<Array*>(getBindings(arrayName).obj);
         Int32        indexOffset = a->getIndexOffsetSize();
         Int32 arrayStackLocation = retrieveStackLocation(arrayName);
+        vector<Int32> offsetTable = a->getOffsetTable();
+
+        vector<Object*>  indices = i->getIndex();
+
+        string               reg;
+        string             toReg = registerManager.getRegister();
+        string              ins0 = "xorq %"+toReg+", %"+toReg;
+        addCompileStmt(ins0);
         
-        CompilerResult compiledResult = compile(i->getIndex());
-        string                    reg = IntoRegister(compiledResult.data);
-        string                  toReg = registerManager.getRegister();
+        for (Int32 i = 0; i < indices.size(); i++) {
+            Object* nthIndex = indices[i];
+            CompilerResult compiledResult = compile(nthIndex);
+                                      reg = IntoRegister(compiledResult.data);
+            string                   ins1 = "imulq $"+STR(offsetTable[offsetTable.size()-1-i])+", %"+reg;
+            string                   ins2 = "addq  %"+reg+", %"+toReg;
+            string                   ins3 = "incq %"+toReg;
+            addCompileStmt(ins1);
+            addCompileStmt(ins2);
+            addCompileStmt(ins3);
+        }
         
-        string                   ins1 = "cltq";
-        string                   ins2 = "negq %"+reg;
-        string                   ins3 = "imulq $"+STR(indexOffset)+", %"+reg;
-        string                   ins4 = "movq -"+STR(arrayStackLocation + ARCH64)+"(%rbp, %"+reg+
-                                        ", "+STR(ARCH64)+"), %"+toReg;
+        string ins3 = "negq %"+toReg;
+        string ins4 = "movq -"+STR(arrayStackLocation)+"(%rbp, %"+toReg+
+                      ", "+STR(ARCH64)+"), %"+reg;
         
-        addCompileStmt(ins1);
-        addCompileStmt(ins2);
         addCompileStmt(ins3);
         addCompileStmt(ins4);
-        
+
         CompilerResult result   = EmptyResult;
         result.resultType       = REG;
-        result.data             = toReg;
-        
-        i->typeContext.indexInstruction = "-"+STR(arrayStackLocation + ARCH64)+"(%rbp, %"+reg+
-                                        ", "+STR(ARCH64)+")";
+        result.data             = reg;
+
+        i->typeContext.indexInstruction = "-"+STR(arrayStackLocation)+"(%rbp, %"+toReg+
+                                          ", "+STR(ARCH64)+")";
         return result;
     }
     RaisePineWarning("Compiler reached end of token matching. Type: "+getTypeName(Type));
@@ -1103,6 +1198,11 @@ void Compiler::PolymorphicPrint(Object* expr, CompilerResult result){
                 ins2 = "movq $"+STR(elementType)+", %rdi";
                 ins3 = "callq _PinePrint";
                 
+            }
+            else if (i->getIndex().size() == a->typeContext.arrayDepth){
+                ins1 = "leaq "+i->typeContext.indexInstruction+", %rsi";
+                ins2 = "movq $"+STR(a->typeContext.arrayPrimativeElementType)+", %rdi";
+                ins3 = "callq _PinePrint";
             }
             else {
                 ins1 = "leaq "+i->typeContext.indexInstruction+", %rsi";
